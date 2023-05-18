@@ -6,3 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+[dev-dependencies]
+assert_cmd = { version = "2.0.11" }
+predicates = { version = "3.0.3" }
+assert_fs = { version = "1.0.13" }
