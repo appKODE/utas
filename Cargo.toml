@@ -5,7 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "utas"
+path = "src/main.rs"
+
 [dependencies]
+clap = { version = "4.2.7", features = ["derive"] }
+anyhow = { version = "1.0.71" }
 
 [dev-dependencies]
 assert_cmd = { version = "2.0.11" }
