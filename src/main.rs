@@ -1,6 +1,7 @@
 use anyhow::{Ok, Result};
 use clap::Parser;
-use configparser::ini::Ini;
+
+mod parse;
 
 #[derive(Parser)]
 struct Args {
@@ -12,12 +13,6 @@ fn main() -> Result<()> {
     let args = Args::parse();
     println!("{} {}", args.input_dir, args.output_dir);
     println!();
-    ini_test();
+    parse::parse("/tmp/strings.txt");
     Ok(())
-}
-
-fn ini_test() {
-    let mut config = Ini::new();
-    let map = config.load("/tmp/strings.txt").unwrap();
-    println!("{:?}", map);
 }
