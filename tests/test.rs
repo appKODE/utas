@@ -1,19 +1,19 @@
-use std::error::Error;
-
 use assert_cmd::Command;
-use predicates::prelude::predicate;
+use assert_fs::{self};
+use std::error::Error;
+mod file;
 
 #[test]
-fn print_args() -> Result<(), Box<dyn Error>> {
+fn case_android_1() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
-    let input = "TEST_INPUT_DIR";
-    let output = "TEST_OUTPUT_DIR";
+    let temp = assert_fs::TempDir::new()?;
 
-    let expected_std = format!("{} {}\n", input, output);
+    let input = "tests/cases/android/output1";
+    let output = temp.path();
 
-    cmd.arg(input).arg(output);
-    cmd.assert().success().stdout(predicate::eq(expected_std));
-
+    cmd.arg(input).arg(output.as_os_str());
+    cmd.assert().success();
+    assert!(file::dirs_contents_are_same(input, output)?);
     Ok(())
 }

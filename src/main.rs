@@ -12,9 +12,9 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    run_android_gen_pipe(&args.input_dir, &args.output_dir)
+    run_android_gen_pipeline(&args.input_dir, &args.output_dir)
 }
 
-fn run_android_gen_pipe(input_dir: &String, output_dir: &String) -> Result<()> {
+fn run_android_gen_pipeline(input_dir: &String, output_dir: &String) -> Result<()> {
     file::copy_recursively(input_dir, output_dir)
 }

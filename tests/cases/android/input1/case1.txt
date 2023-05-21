@@ -1,0 +1,18 @@
+[[Case1]]
+  [general]
+    en = General
+    ru = Общие
+    ar = عام
+    fi = Yleistä
+    fr = Général
+
+  [notifications]
+    en = Notifications
+    ru = Уведомления
+    ar = الإشعارات
+    fi = Ilmoitukset
+    fr = Notifications
+    
+  [survey]
+    en = Survey
+    ru = Опросы

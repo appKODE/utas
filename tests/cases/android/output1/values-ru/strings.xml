@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <string name="general">Общие</string>
+  <string name="notifications">Уведомления</string>
+  <string name="survey">Опросы</string>
+</resources>
