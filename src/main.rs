@@ -1,7 +1,8 @@
-use anyhow::{Ok, Result};
-use clap::Parser;
-
+mod file;
 mod parse;
+
+use anyhow::Result;
+use clap::Parser;
 
 #[derive(Parser)]
 struct Args {
@@ -11,8 +12,9 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    println!("{} {}", args.input_dir, args.output_dir);
-    println!();
-    parse::parse("/tmp/strings.txt");
-    Ok(())
+    run_android_gen_pipe(&args.input_dir, &args.output_dir)
+}
+
+fn run_android_gen_pipe(input_dir: &String, output_dir: &String) -> Result<()> {
+    file::copy_recursively(input_dir, output_dir)
 }
