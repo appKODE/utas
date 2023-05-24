@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod parse;
+mod android_gen;
 
 #[derive(Parser)]
 struct Args {
