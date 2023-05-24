@@ -1,7 +1,6 @@
 use assert_cmd::Command;
 use assert_fs::{self};
 use std::error::Error;
-mod file;
 
 #[test]
 fn case_android_1() -> Result<(), Box<dyn Error>> {
