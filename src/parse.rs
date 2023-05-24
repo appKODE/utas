@@ -25,7 +25,7 @@ pub struct LocalizedString {
     pub value: Vec<Token>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Text(String),
     Placeholder(String),
@@ -91,4 +91,75 @@ fn key_from_locale_value_map(
 fn parse_localized_string_value(raw_value: String) -> Result<Vec<Token>, String> {
     // TODO @dz actually parse
     Ok(vec![Token::Text(raw_value)])
+}
+
+#[test]
+fn parses_simple_string() {
+    let input = "Lorem ipsum".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(result, vec![Token::Text("Lorem ipsum".to_string())]);
+}
+
+#[test]
+fn parses_single_placeholder() {
+    let input = "Lorem %d ipsum".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        vec![
+            Token::Text("Lorem ".to_string()),
+            Token::Placeholder("%d".to_string()),
+            Token::Text(" ipsum".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn parses_single_string_placeholder() {
+    let input = "Lorem %@ ipsum".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        vec![
+            Token::Text("Lorem ".to_string()),
+            Token::Placeholder("%s".to_string()),
+            Token::Text(" ipsum".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn parses_multiple_placeholders() {
+    let input = "Lorem %@ ipsum %.2f sir %,d amet %%".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        vec![
+            Token::Text("Lorem ".to_string()),
+            Token::Placeholder("%1$s".to_string()),
+            Token::Text(" ipsum ".to_string()),
+            Token::Placeholder("%2$.2f".to_string()),
+            Token::Text(" sir ".to_string()),
+            Token::Placeholder("%3$,d".to_string()),
+            Token::Text(" amet %%".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn parses_multiple_placeholders_keeping_order_if_present() {
+    let input = "Lorem %3$@ ipsum %1$.2f sir %2$,d amet".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        vec![
+            Token::Text("Lorem ".to_string()),
+            Token::Placeholder("%3$s".to_string()),
+            Token::Text(" ipsum ".to_string()),
+            Token::Placeholder("%1$.2f".to_string()),
+            Token::Text(" sir ".to_string()),
+            Token::Placeholder("%2$,d".to_string()),
+            Token::Text(" amet".to_string()),
+        ]
+    );
 }
