@@ -602,6 +602,7 @@ dependencies = [
  "assert_fs",
  "clap",
  "configparser",
+ "indexmap",
  "predicates",
  "queues",
 ]

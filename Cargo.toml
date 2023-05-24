@@ -14,6 +14,7 @@ clap = { version = "4.2.7", features = ["derive"] }
 anyhow = { version = "1.0.71" }
 configparser = { version = "3.0.2", features = ["indexmap"] }
 queues = { version = "1.0.2" }
+indexmap = { version = "1.9.3" }
 
 [dev-dependencies]
 assert_cmd = { version = "2.0.11" }
