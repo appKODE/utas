@@ -5,6 +5,19 @@ use std::fs::{self, File};
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+pub fn copy_recursively(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<()> {
+    fs::create_dir_all(&destination)?;
+    for item in fs::read_dir(source)? {
+        let item = item?;
+        if item.file_type()?.is_dir() {
+            copy_recursively(item.path(), destination.as_ref().join(item.file_name()))?;
+        } else {
+            fs::copy(item.path(), destination.as_ref().join(item.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
 /// Check if all files in dirs have the same content and paths to files with contents
 pub fn dirs_contents_are_same(dir1: impl AsRef<Path>, dir2: impl AsRef<Path>) -> Result<bool> {
     let mut paths1 = get_all_file_paths(&dir1.as_ref())?;

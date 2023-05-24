@@ -1,7 +1,6 @@
-use anyhow::{Ok, Result};
+use anyhow::{Result};
 use clap::Parser;
 
-mod file;
 mod parse;
 
 #[derive(Parser)]
@@ -18,6 +17,5 @@ fn main() -> Result<()> {
 fn run_android_gen_pipeline(input_dir: &String, output_dir: &String) -> Result<()> {
     // let result = parse::parse("/tmp/strings.txt");
     // println!("{:?}", result);
-    file::copy_recursively(input_dir, output_dir);
-    Ok(())
+    file::copy_recursively(input_dir, output_dir)
 }

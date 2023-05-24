@@ -1,0 +1,9 @@
+[package]
+name = "file"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1.0.71" }
+queues = { version = "1.0.2" }
+assert_fs = { version = "1.0.13" }
