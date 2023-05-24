@@ -55,7 +55,7 @@ pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
     // [login_screen_title]
     // en = Login
     // ru = Логин
-    for (resource_key_name, localizations) in &map {
+    for (resource_key_name, localizations) in map {
         let key = key_from_locale_value_map(resource_key_name, localizations)?;
         section.keys.push(key);
     }
@@ -66,8 +66,8 @@ pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
 }
 
 fn key_from_locale_value_map(
-    name: &String,
-    raw_localizations: &IndexMap<String, Option<String>>,
+    name: String,
+    raw_localizations: IndexMap<String, Option<String>>,
 ) -> Result<Key, String> {
     let mut localizations: Vec<LocalizedString> = Vec::with_capacity(raw_localizations.len());
     for (locale_name, string_value_opt) in raw_localizations {
@@ -76,19 +76,19 @@ fn key_from_locale_value_map(
             continue;
         };
         let loc_str = LocalizedString {
-            language_code: locale_name.to_string(),
+            language_code: locale_name,
             value: parse_localized_string_value(string_value)?,
         };
         localizations.push(loc_str)
     }
     let key = Key {
-        name: name.to_string(),
+        name,
         localizations,
     };
     Ok(key)
 }
 
-fn parse_localized_string_value(raw_value: &String) -> Result<Vec<Token>, String> {
+fn parse_localized_string_value(raw_value: String) -> Result<Vec<Token>, String> {
     // TODO @dz actually parse
-    Ok(vec![Token::Text(raw_value.to_string())])
+    Ok(vec![Token::Text(raw_value)])
 }
