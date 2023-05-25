@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Ok, Result};
 use std::collections::{hash_map, HashMap};
 
-use crate::parse::{File, Key, LocalizedString, Section, Token};
+use crate::parse::{File, Key, LocalizedString, Section};
 
 #[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Clone)]
 pub struct Locale {
@@ -46,16 +46,11 @@ pub fn generate(source: &File) -> Result<GenResult> {
     Ok(GenResult { value: result })
 }
 
-pub fn generate_str_value(str_name: &String, tokens: &Vec<Token>) -> String {
+pub fn generate_str_value(str_name: &String, str_value: &str) -> String {
     let open_tag = format!("<string name=\"{}\">", str_name);
     let close_tag = "</string>";
     let mut value = String::from(open_tag);
-    for token in tokens {
-        match token {
-            Token::Text(text) => value.push_str(text),
-            Token::Placeholder(id) => value.push_str(id),
-        };
-    }
+    value.push_str(str_value);
     value.push_str(close_tag);
     value
 }
@@ -64,7 +59,7 @@ pub fn generate_str_value(str_name: &String, tokens: &Vec<Token>) -> String {
 fn plain_str(lang: &str, txt: &str) -> LocalizedString {
     LocalizedString {
         language_code: lang.to_string(),
-        value: vec![Token::Text(txt.to_string())],
+        value: txt.to_string(),
     }
 }
 
@@ -206,11 +201,7 @@ fn generate_3_lang_2_str() -> Result<()> {
 fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
     let localizations_add = vec![LocalizedString {
         language_code: "mn".to_string(),
-        value: vec![
-            Token::Placeholder("%1$s".to_string()),
-            Token::Text(" нэмэх ".to_string()),
-            Token::Placeholder("%2$d".to_string()),
-        ],
+        value: "%1$s нэмэх %2$d".to_string(),
     }];
     let keys = vec![key("add", localizations_add)];
     let source = File {
@@ -239,6 +230,6 @@ fn generate_error_if_empty_sections() -> Result<()> {
 
     let actual = generate(&source);
     assert!(actual.is_err());
-    
+
     Ok(())
 }
