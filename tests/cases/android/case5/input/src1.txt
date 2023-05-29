@@ -1,0 +1,15 @@
+[[Src1]]
+  [twine]
+    en = Twine
+    mn = Утас
+    ru = Утасъ
+    de = Der Utas
+    es = Él Utaso
+    kz = Ұтас
+    fr = Ut'ase
+    kg = Uthasu'
+
+  [twist]
+    es = Compré pocas copas
+    kg = Humanpu' QIch
+  

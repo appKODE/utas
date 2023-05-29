@@ -1,0 +1,8 @@
+[[Src1]]
+  [lorem]
+    en = Lorem %3$@ ipsum %1$.2f sir %2$,d amet
+    mn = Лоорма %3$@ ипсхаак %1$.2f сыатүүын %2$,d сылчин
+
+  [text]
+    de = Ich hab' heute nichts versäumt\nDenn ich hab' nur von dir geträumt\nWir haben uns lang nicht mehr gesehen... 
+    ru = Я ничего не пропустил сегодня\nПотому что я только мечтал о тебе\nМы давно не виделись... 

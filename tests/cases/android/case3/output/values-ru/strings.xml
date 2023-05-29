@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <string name="lorem">Лорем %1$s етить %2$.2f сир %3$,d ваш %%</string>
+</resources>

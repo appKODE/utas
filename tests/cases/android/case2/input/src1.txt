@@ -1,0 +1,8 @@
+[[Src1]]
+  [lorem]
+    en = Lorem %d ipsumkekum
+    ru = Лорем %d ипсумкекум
+
+  [ooo]
+    en = Ooooo %@ ooooO 
+    ru = Ооооо %@ ооооО
