@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <string name="lorem">Lorem %d ipsumkekum</string>
+  <string name="ooo">Ooooo %s ooooO</string>
+</resources>

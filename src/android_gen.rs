@@ -1,5 +1,11 @@
 use anyhow::{anyhow, Ok, Result};
-use std::collections::{hash_map, HashMap};
+use std::{
+    collections::{hash_map, HashMap},
+    io::Write,
+    path::Path,
+};
+
+use std::fs;
 
 use crate::parse::{File, Key, LocalizedString, Section};
 
@@ -15,6 +21,32 @@ pub struct StrLines {
 
 pub struct GenResult {
     value: HashMap<Locale, StrLines>,
+}
+
+impl GenResult {
+    pub fn write(&self, dir: impl AsRef<Path>) -> Result<()> {
+        for (locale, lines) in &self.value {
+            let subpath = dir.as_ref().join(format!("values-{}", locale.value));
+            if !subpath.is_dir() {
+                fs::create_dir(&subpath)?;
+            }
+            let filepath = subpath.join("strings.xml");
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .create(true)
+                .open(filepath)?;
+            file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n".as_bytes())?;
+            file.write("\n".as_bytes())?;
+            file.write("<resources>\n".as_bytes())?;
+            for line in &lines.value {
+                let spaced = format!("  {}\n", line);
+                file.write(spaced.as_bytes())?;
+            }
+            file.write("</resources>".as_bytes())?;
+        }
+        Ok(())
+    }
 }
 
 pub fn generate(source: &File) -> Result<GenResult> {

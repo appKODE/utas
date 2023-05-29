@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <string name="lorem">Лоорма %3$s ипсхаак %1$.2f сыатүүын %2$,d сылчин</string>
+</resources>

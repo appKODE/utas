@@ -1,4 +1,4 @@
-[[Case1]]
+[[Src1]]
   [general]
     en = General
     ru = Общие

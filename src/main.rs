@@ -1,8 +1,11 @@
-use anyhow::Result;
+use android_gen as generator;
+use anyhow::{anyhow, Ok, Result};
 use clap::Parser;
+use parse as parser;
+use std::fs;
 
-mod parse;
 mod android_gen;
+mod parse;
 
 #[derive(Parser)]
 struct Args {
@@ -16,7 +19,13 @@ fn main() -> Result<()> {
 }
 
 fn run_android_gen_pipeline(input_dir: &String, output_dir: &String) -> Result<()> {
-    // let result = parse::parse("/tmp/strings.txt");
-    // println!("{:?}", result);
-    file::copy_recursively(input_dir, output_dir)
+    for src in fs::read_dir(input_dir)? {
+        let src = src?;
+        if src.file_type()?.is_file() {
+            let parsed = parser::parse(src.path()).map_err(|err| anyhow!(err))?;
+            let generated = generator::generate(&parsed)?;
+            generated.write(output_dir)?;
+        }
+    }
+    Ok(())
 }
