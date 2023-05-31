@@ -106,13 +106,14 @@ fn parse_localized_string_value(raw_value: String) -> Result<String, String> {
     lazy_static! {
         static ref PLACEHOLDER_REGEX_RE: Regex = Regex::new(PLACEHOLDER_REGEX).unwrap();
     }
-    if !PLACEHOLDER_REGEX_RE.is_match(&raw_value) {
-        return Ok(raw_value);
-    }
     let mut value = raw_value;
+    value = maybe_escape_characters(&value).to_string();
+    value = maybe_replace_single_percent_with_double_percent(&value).to_string();
+    if !PLACEHOLDER_REGEX_RE.is_match(&value) {
+        return Ok(value);
+    }
     value = convert_twine_string_placeholder(&value).to_string();
     value = maybe_add_positional_numbers(&value).to_string();
-    value = maybe_replace_single_percent_with_double_percent(&value).to_string();
     Ok(value)
 }
 
@@ -161,6 +162,15 @@ fn maybe_replace_single_percent_with_double_percent(input: &str) -> Cow<str> {
     return Cow::from(input);
 }
 
+fn maybe_escape_characters(input: &str) -> Cow<str> {
+    let needs_escaping = input.contains("&") || input.contains("<");
+    if needs_escaping {
+        Cow::Owned(input.replace("&", "&amp;").replace("<", "&lt;"))
+    } else {
+        Cow::Borrowed(input)
+    }
+}
+
 #[test]
 fn parses_simple_string() {
     let input = "Lorem ipsum".to_string();
@@ -194,6 +204,13 @@ fn parses_multiple_placeholders_keeping_order_if_present() {
     let input = "Lorem %3$@ ipsum %1$.2f sir %2$,d amet".to_string();
     let result = parse_localized_string_value(input).unwrap();
     assert_eq!(result, "Lorem %3$s ipsum %1$.2f sir %2$,d amet",);
+}
+
+#[test]
+fn parses_html_tags_and_related_characters_with_proper_escaping() {
+    let input = "У нас было <b>38</b> попугаев в <i>чистой</i> упаковке, на которой было указано: 38 < 89 && 88 >= 55".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(result, "У нас было &lt;b>38&lt;/b> попугаев в &lt;i>чистой&lt;/i> упаковке, на которой было указано: 38 &lt; 89 &amp;&amp; 88 >= 55");
 }
 
 // TODO @dz @Parsing Add support for replacing "%" with "%%"
