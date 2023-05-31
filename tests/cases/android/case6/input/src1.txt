@@ -1,0 +1,7 @@
+[[Src1]]
+  [lorem]
+    en = Lorem %@ ipsum %.2f sir %,d amet %%
+    ru = Лорем %@ етить %.2f сир %,d ваш %%
+
+  [nomad]
+    mn = Нүүдэлчин

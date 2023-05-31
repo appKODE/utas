@@ -24,7 +24,10 @@ fn run_android_gen_pipeline(input_dir: &String, output_dir: &String) -> Result<(
         if src.file_type()?.is_file() {
             let parsed = parser::parse(src.path()).map_err(|err| anyhow!(err))?;
             let generated = generator::generate(&parsed)?;
-            generated.write(output_dir)?;
+            generated.write(
+                output_dir, 
+                src.path().file_stem().and_then(|os_str| os_str.to_str()).ok_or(anyhow!("Cannot extract file name"))?,
+            )?;
         }
     }
     Ok(())

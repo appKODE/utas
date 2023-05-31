@@ -24,13 +24,13 @@ pub struct GenResult {
 }
 
 impl GenResult {
-    pub fn write(&self, dir: impl AsRef<Path>) -> Result<()> {
+    pub fn write(&self, dir: impl AsRef<Path>, file_name: &str) -> Result<()> {
         for (locale, lines) in &self.value {
             let subpath = dir.as_ref().join(format!("values-{}", locale.value));
             if !subpath.is_dir() {
                 fs::create_dir(&subpath)?;
             }
-            let filepath = subpath.join("strings.xml");
+            let filepath = subpath.join(format!("{}.xml", file_name));
             let mut file = fs::OpenOptions::new()
                 .write(true)
                 .truncate(true)
@@ -43,7 +43,7 @@ impl GenResult {
                 let spaced = format!("  {}\n", line);
                 file.write(spaced.as_bytes())?;
             }
-            file.write("</resources>".as_bytes())?;
+            file.write("</resources>\n".as_bytes())?;
         }
         Ok(())
     }

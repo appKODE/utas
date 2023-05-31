@@ -27,6 +27,11 @@ fn case_android_5() -> Result<(), Box<dyn Error>> {
     basic_test_case("case5")
 }
 
+#[test]
+fn case_android_6() -> Result<(), Box<dyn Error>> {
+    basic_test_case("case6")
+}
+
 fn basic_test_case(case_rel_path: &str) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
