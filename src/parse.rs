@@ -223,3 +223,13 @@ fn parses_html_tags_and_related_characters_with_proper_escaping() {
 //         "100%% Lorem %1$@ ipsum %2$.2f %% sir %3$d amet 8%% and %% untouched"
 //     );
 // }
+
+// #[test]
+// fn replaces_percent_with_double_percent_wihout_placeholders() {
+//     let input = "100% Lorem ipsum amet 8% and %% untouched".to_string();
+//     let result = parse_localized_string_value(input).unwrap();
+//     assert_eq!(
+//         result,
+//         "100%% Lorem ipsum amet 8%% and %% untouched"
+//     );
+// }
