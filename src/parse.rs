@@ -29,7 +29,7 @@ pub struct LocalizedString {
 }
 
 pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
-    let mut config = Ini::new();
+    let mut config = Ini::new_cs();
     let map = config.load(path)?;
     // NOTE: twine has this structure
     // [[Section1]]

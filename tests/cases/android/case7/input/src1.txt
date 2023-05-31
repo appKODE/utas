@@ -1,0 +1,6 @@
+[[Src1]]
+  [Antigua_Barbadoa]
+    en = Antigua Barbadoa
+
+  [Greenland]
+    en = Greenland
