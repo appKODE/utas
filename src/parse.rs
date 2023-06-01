@@ -1,6 +1,6 @@
 use configparser::ini::Ini;
 use const_format::concatcp;
-use indexmap::IndexMap;
+use indexmap::{map::Entry, IndexMap};
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use std::{borrow::Cow, path::Path};
@@ -25,7 +25,20 @@ pub struct Key {
 #[derive(Debug)]
 pub struct LocalizedString {
     pub language_code: String,
-    pub value: String,
+    pub value: StringValue,
+}
+
+#[derive(Debug)]
+pub enum StringValue {
+    Single(String),
+    Plural { quantities: Vec<PluralValue> },
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PluralValue {
+    /// quantity can be: "zero", "one", "two", "few", "many", and "other"
+    quantity: String,
+    text: String,
 }
 
 pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
@@ -83,6 +96,17 @@ fn key_from_locale_value_map(
     name: String,
     raw_localizations: IndexMap<String, Option<String>>,
 ) -> Result<Key, String> {
+    if raw_localizations.keys().any(|l| l.contains(':')) {
+        key_from_locale_plural_value_map(name, raw_localizations)
+    } else {
+        key_from_locale_single_value_map(name, raw_localizations)
+    }
+}
+
+fn key_from_locale_single_value_map(
+    name: String,
+    raw_localizations: IndexMap<String, Option<String>>,
+) -> Result<Key, String> {
     let mut localizations: Vec<LocalizedString> = Vec::with_capacity(raw_localizations.len());
     for (locale_name, string_value_opt) in raw_localizations {
         let Some(string_value) = string_value_opt else {
@@ -91,13 +115,52 @@ fn key_from_locale_value_map(
         };
         let loc_str = LocalizedString {
             language_code: locale_name,
-            value: parse_localized_string_value(string_value)?,
+            value: StringValue::Single(parse_localized_string_value(string_value)?),
         };
         localizations.push(loc_str)
     }
     let key = Key {
         name,
         localizations,
+    };
+    Ok(key)
+}
+
+fn key_from_locale_plural_value_map(
+    name: String,
+    raw_localizations: IndexMap<String, Option<String>>,
+) -> Result<Key, String> {
+    let mut localizations: IndexMap<String, LocalizedString> =
+        IndexMap::with_capacity(raw_localizations.len());
+    for (locale_name_and_quantity, string_value_opt) in raw_localizations {
+        let Some(string_value) = string_value_opt else {
+            println!("skipped key \"{}\" because it's empty", locale_name_and_quantity);
+            continue;
+        };
+        let Some((locale_name, quantity)) = locale_name_and_quantity.split_once(':') else {
+            println!("skipped key \"{}\" because can't split into locale and quantity", locale_name_and_quantity);
+            continue;
+        };
+        let entry = localizations
+            .entry(locale_name.to_string())
+            .or_insert(LocalizedString {
+                language_code: locale_name.to_string(),
+                value: StringValue::Plural {
+                    quantities: Vec::new(),
+                },
+            });
+        let loc_str_value = &mut entry.value;
+        let StringValue::Plural { quantities } = loc_str_value else {
+            continue;
+        };
+        quantities.push(PluralValue {
+            quantity: quantity.to_string(),
+            text: parse_localized_string_value(string_value)?,
+        });
+    }
+    let key = Key {
+        name,
+        localizations: localizations.into_iter().map(|(_, value)| value).collect(),
     };
     Ok(key)
 }
@@ -233,3 +296,79 @@ fn parses_html_tags_and_related_characters_with_proper_escaping() {
 //         "100%% Lorem ipsum amet 8%% and %% untouched"
 //     );
 // }
+
+#[test]
+fn parses_plural_form_keys() {
+    let mut input = IndexMap::new();
+    input.insert(
+        "en:one".to_string(),
+        Some("%d ruble %d bear and 1 vodka".to_string()),
+    );
+    input.insert(
+        "en:many".to_string(),
+        Some("%d rubles %d bears and 1 vodka".to_string()),
+    );
+    input.insert(
+        "ru:one".to_string(),
+        Some("%d рубль %d медведь и 1 водка".to_string()),
+    );
+    input.insert(
+        "ru:zero".to_string(),
+        Some("нет рублей нет медведей и 1 водка".to_string()),
+    );
+    input.insert(
+        "ru:other".to_string(),
+        Some("много рублей много медведей и 2 водки".to_string()),
+    );
+    let result = key_from_locale_value_map("receipt_example".to_string(), input).unwrap();
+    let loc = result.localizations;
+
+    assert_eq!(loc.len(), 2);
+    assert_eq!(loc[0].language_code, "en".to_string());
+    match &loc[0].value {
+        StringValue::Plural { quantities } => {
+            assert_eq!(
+                quantities[0],
+                PluralValue {
+                    quantity: "one".to_string(),
+                    text: "%1$d ruble %2$d bear and 1 vodka".to_string()
+                }
+            );
+            assert_eq!(
+                quantities[1],
+                PluralValue {
+                    quantity: "many".to_string(),
+                    text: "%1$d rubles %2$d bears and 1 vodka".to_string()
+                }
+            )
+        }
+        StringValue::Single(_) => panic!("expected plural value"),
+    }
+    assert_eq!(loc[1].language_code, "ru".to_string());
+    match &loc[1].value {
+        StringValue::Plural { quantities } => {
+            assert_eq!(
+                quantities[0],
+                PluralValue {
+                    quantity: "one".to_string(),
+                    text: "%1$d рубль %2$d медведь и 1 водка".to_string()
+                }
+            );
+            assert_eq!(
+                quantities[1],
+                PluralValue {
+                    quantity: "zero".to_string(),
+                    text: "нет рублей нет медведей и 1 водка".to_string()
+                }
+            );
+            assert_eq!(
+                quantities[2],
+                PluralValue {
+                    quantity: "other".to_string(),
+                    text: "много рублей много медведей и 2 водки".to_string()
+                }
+            )
+        }
+        StringValue::Single(_) => panic!("expected plural value"),
+    }
+}
