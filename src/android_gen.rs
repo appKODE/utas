@@ -7,7 +7,7 @@ use std::{
 
 use std::fs;
 
-use crate::parse::{File, Key, LocalizedString, Section};
+use crate::parse::{File, Key, LocalizedString, PluralValue, Section, StringValue};
 
 #[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Clone)]
 pub struct Locale {
@@ -65,12 +65,20 @@ pub fn generate(source: &File) -> Result<GenResult> {
             let code = Locale {
                 value: str.language_code.clone(),
             };
-            let value = generate_str_value(str_name, &str.value);
             let mut current = match result.remove(&code) {
                 Some(current) => current.value,
                 None => Vec::with_capacity(keys.len()),
             };
-            current.push(value);
+            match &str.value {
+                StringValue::Single(value) => {
+                    current.push(generate_str_value(str_name, &value));
+                }
+                StringValue::Plural { quantities } => {
+                    for value in generate_plural_value(str_name, &quantities) {
+                        current.push(value)
+                    }
+                }
+            }
             result.insert(code, StrLines { value: current });
         }
     }
@@ -87,11 +95,16 @@ pub fn generate_str_value(str_name: &String, str_value: &str) -> String {
     value
 }
 
+pub fn generate_plural_value(str_name: &String, plurals: &Vec<PluralValue>) -> Vec<String> {
+    // TODO @TrueWarg help me!
+    Vec::new()
+}
+
 // -----------------------------  test tools ------------------------------
 fn plain_str(lang: &str, txt: &str) -> LocalizedString {
     LocalizedString {
         language_code: lang.to_string(),
-        value: txt.to_string(),
+        value: StringValue::Single(txt.to_string()),
     }
 }
 
@@ -233,7 +246,7 @@ fn generate_3_lang_2_str() -> Result<()> {
 fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
     let localizations_add = vec![LocalizedString {
         language_code: "mn".to_string(),
-        value: "%1$s нэмэх %2$d".to_string(),
+        value: StringValue::Single("%1$s нэмэх %2$d".to_string()),
     }];
     let keys = vec![key("add", localizations_add)];
     let source = File {
