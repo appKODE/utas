@@ -2,8 +2,8 @@ use configparser::ini::Ini;
 use const_format::concatcp;
 use indexmap::{map::Entry, IndexMap};
 use lazy_static::lazy_static;
-use regex::{Captures, Regex};
-use std::{borrow::Cow, path::Path};
+use regex::{Captures, Match, Regex};
+use std::{borrow::Cow, fmt::format, path::Path};
 
 #[derive(Debug)]
 pub struct File {
@@ -91,6 +91,7 @@ const NON_NUMBERED_PLACEHOLDER_REGEX: &str = concatcp!(
     PLACEHOLDER_TYPES,
     ")"
 );
+const SINGLE_PERCENT_REGEX: &str = r"([^%][%][^%]|[^%][%]$|^[%]$)";
 
 fn key_from_locale_value_map(
     name: String,
@@ -212,17 +213,34 @@ fn maybe_add_positional_numbers(input: &str) -> Cow<str> {
 }
 
 fn maybe_replace_single_percent_with_double_percent(input: &str) -> Cow<str> {
+    lazy_static! {
+        static ref SINGLE_PERCENT_REGEX_RE: Regex = Regex::new(SINGLE_PERCENT_REGEX).unwrap();
+        static ref PLACEHOLDER_REGEX_RE: Regex = Regex::new(PLACEHOLDER_REGEX).unwrap();
+    }
     // Regex crate doesn't support negative lookahead which is used in
-    // twine/placholder.rb for this case, so something else must be invented here.
-    // I think of something like this:
-    // - use two Regexes: r1 = "[%][^%]+", r2 =PLACEHOLDER_REGEX
+    // twine/placholder.rb for this case, so something else is invented here.
+    // - use two Regexes: r1 = SINGLE_PERCENT_REGEX, r2 = PLACEHOLDER_REGEX
     // - iterate the matches of r1 and use r2.find_at(match) == match.start
     //   to see if this is a placholder-match
     // - if it is not a placeholder match, then it is a percent match,
-    //   remember its start in some vec
-    // - use r1.replace_all() to replace only those matches which have
-    //   start-indexes in vec
-    return Cow::from(input);
+    SINGLE_PERCENT_REGEX_RE.replace_all(input, |caps: &Captures| {
+        let whole_match = caps.get(0).unwrap();
+        // NOTE "percent match" can have first character not exactly being "%", for example
+        // for "100% hello" it will be "% ".
+        // So additional index adjustement is needed to correctly compare with "placeholder match" start
+        let start = percent_start(&whole_match);
+        let is_placeholder =
+            matches!(PLACEHOLDER_REGEX_RE.find_at(input, start), Some(m) if m.start() == start);
+        if is_placeholder {
+            whole_match.as_str().to_string()
+        } else {
+            whole_match.as_str().replace('%', "%%")
+        }
+    })
+}
+
+fn percent_start(m: &Match) -> usize {
+    m.start() + m.as_str().find('%').unwrap()
 }
 
 fn maybe_escape_characters(input: &str) -> Cow<str> {
@@ -276,26 +294,26 @@ fn parses_html_tags_and_related_characters_with_proper_escaping() {
     assert_eq!(result, "У нас было &lt;b>38&lt;/b> попугаев в &lt;i>чистой&lt;/i> упаковке, на которой было указано: 38 &lt; 89 &amp;&amp; 88 >= 55");
 }
 
-// TODO @dz @Parsing Add support for replacing "%" with "%%"
-// #[test]
-// fn replaces_percent_with_double_percent() {
-//     let input = "100% Lorem %@ ipsum %.2f 20% sir %d amet 8% and %% untouched".to_string();
-//     let result = parse_localized_string_value(input).unwrap();
-//     assert_eq!(
-//         result,
-//         "100%% Lorem %1$@ ipsum %2$.2f %% sir %3$d amet 8%% and %% untouched"
-//     );
-// }
+#[test]
+fn replaces_percent_with_double_percent() {
+    let input =
+        "100% Lorem %@ ipsum %.2f 20% sir %d amet 8% and %% untouched, ending with 42%".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        "100%% Lorem %1$s ipsum %2$.2f 20%% sir %3$d amet 8%% and %% untouched, ending with 42%%"
+    );
+}
 
-// #[test]
-// fn replaces_percent_with_double_percent_wihout_placeholders() {
-//     let input = "100% Lorem ipsum amet 8% and %% untouched".to_string();
-//     let result = parse_localized_string_value(input).unwrap();
-//     assert_eq!(
-//         result,
-//         "100%% Lorem ipsum amet 8%% and %% untouched"
-//     );
-// }
+#[test]
+fn replaces_percent_with_double_percent_wihout_placeholders() {
+    let input = "100% Lorem ipsum amet 8% and %% untouched, ending with 42%".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        "100%% Lorem ipsum amet 8%% and %% untouched, ending with 42%%"
+    );
+}
 
 #[test]
 fn parses_plural_form_keys() {
