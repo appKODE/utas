@@ -1,0 +1,10 @@
+[[Src1]]
+  [ruble_bear_vodka_balalaika]
+    en:one = %d ruble %d bear 1 vodka and balalaika
+    en:many = %d rubles %d bears 1 vodka and balalaika
+    ru:one = %d рубль %d медведь только 1 водка на балалайке
+    ru:zero = (1/∞)
+    ru:many = много рублей много медведей %d водки и %d балалайки
+
+  [Greenland]
+    en = Greenland. Just Greenland

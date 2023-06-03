@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <plurals name="ruble_bear_vodka_balalaika">
+    <item quantity="one">%1$d ruble %2$d bear 1 vodka and balalaika</item>
+    <item quantity="many">%1$d rubles %2$d bears 1 vodka and balalaika</item>
+  </plurals>
+  <string name="Greenland">Greenland. Just Greenland</string>
+</resources>
