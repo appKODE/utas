@@ -1,5 +1,4 @@
 use anyhow::{Ok, Result};
-use assert_fs::prelude::FileWriteStr;
 use queues::{queue, IsQueue, Queue};
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
