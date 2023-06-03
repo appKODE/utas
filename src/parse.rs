@@ -1,4 +1,4 @@
-use configparser::ini::Ini;
+use configparser::ini::{Ini, IniDefault};
 use const_format::concatcp;
 use indexmap::{map::Entry, IndexMap};
 use lazy_static::lazy_static;
@@ -28,21 +28,24 @@ pub struct LocalizedString {
     pub value: StringValue,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug, PartialOrd, Ord, Clone)]
 pub enum StringValue {
     Single(String),
     Plural { quantities: Vec<PluralValue> },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq, Eq, Debug, PartialOrd, Ord, Clone)]
 pub struct PluralValue {
     /// quantity can be: "zero", "one", "two", "few", "many", and "other"
-    quantity: String,
-    text: String,
+    pub quantity: String,
+    pub text: String,
 }
 
 pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
-    let mut config = Ini::new_cs();
+    let mut default = IniDefault::default();
+    default.case_sensitive = true;
+    default.delimiters = vec!['='];
+    let mut config = Ini::new_from_defaults(default);
     let map = config.load(path)?;
     // NOTE: twine has this structure
     // [[Section1]]

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <plurals name="ruble_bear_vodka_balalaika">
+    <item quantity="one">%1$d рубль %2$d медведь только 1 водка на балалайке</item>
+    <item quantity="zero">(1/∞)</item>
+    <item quantity="many">много рублей много медведей %1$d водки и %2$d балалайки</item>
+  </plurals>
+</resources>

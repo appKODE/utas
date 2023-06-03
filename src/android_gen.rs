@@ -1,9 +1,5 @@
 use anyhow::{anyhow, Ok, Result};
-use std::{
-    collections::{hash_map, HashMap},
-    io::Write,
-    path::Path,
-};
+use std::{collections::HashMap, io::Write, path::Path};
 
 use std::fs;
 
@@ -16,7 +12,22 @@ pub struct Locale {
 
 #[derive(PartialEq, Eq, Debug, PartialOrd, Ord, Clone)]
 pub struct StrLines {
-    value: Vec<String>,
+    value: Vec<Line>,
+}
+
+#[derive(PartialEq, Eq, Debug, PartialOrd, Ord, Clone)]
+pub struct Line {
+    name: String,
+    value: StringValue,
+}
+
+impl Line {
+    fn format(&self) -> Vec<String> {
+        match &self.value {
+            StringValue::Single(text) => vec![generate_str_value(&self.name, text)],
+            StringValue::Plural { quantities } => generate_plural_value(&self.name, quantities),
+        }
+    }
 }
 
 pub struct GenResult {
@@ -40,8 +51,10 @@ impl GenResult {
             file.write("\n".as_bytes())?;
             file.write("<resources>\n".as_bytes())?;
             for line in &lines.value {
-                let spaced = format!("  {}\n", line);
-                file.write(spaced.as_bytes())?;
+                let formatted = line.format();
+                for item in formatted {
+                    file.write(format!("  {}\n", item).as_bytes())?;
+                }
             }
             file.write("</resources>\n".as_bytes())?;
         }
@@ -59,45 +72,50 @@ pub fn generate(source: &File) -> Result<GenResult> {
     };
 
     let mut result: HashMap<Locale, StrLines> = HashMap::new();
+    let keys_len = keys.len();
     for key in keys {
         let str_name = &key.name;
         for str in &key.localizations {
             let code = Locale {
                 value: str.language_code.clone(),
             };
-            let mut current = match result.remove(&code) {
-                Some(current) => current.value,
-                None => Vec::with_capacity(keys.len()),
-            };
-            match &str.value {
-                StringValue::Single(value) => {
-                    current.push(generate_str_value(str_name, &value));
-                }
-                StringValue::Plural { quantities } => {
-                    for value in generate_plural_value(str_name, &quantities) {
-                        current.push(value)
-                    }
-                }
-            }
-            result.insert(code, StrLines { value: current });
+
+            let current = &mut result
+                .entry(code)
+                .or_insert(StrLines {
+                    value: Vec::with_capacity(keys_len),
+                })
+                .value;
+
+            current.push(Line {
+                name: str_name.clone(),
+                value: str.value.clone(),
+            })
         }
     }
 
     Ok(GenResult { value: result })
 }
 
-pub fn generate_str_value(str_name: &String, str_value: &str) -> String {
-    let open_tag = format!("<string name=\"{}\">", str_name);
-    let close_tag = "</string>";
-    let mut value = String::from(open_tag);
-    value.push_str(str_value);
-    value.push_str(close_tag);
-    value
+fn generate_str_value(str_name: &str, str_value: &str) -> String {
+    String::from(format!(
+        "<string name=\"{}\">{}</string>",
+        str_name, str_value
+    ))
 }
 
-pub fn generate_plural_value(str_name: &String, plurals: &Vec<PluralValue>) -> Vec<String> {
-    // TODO @TrueWarg help me!
-    Vec::new()
+fn generate_plural_value(str_name: &String, items: &Vec<PluralValue>) -> Vec<String> {
+    let mut result: Vec<String> = Vec::with_capacity(items.len() + 2);
+    result.push(format!("<plurals name=\"{}\">", str_name));
+
+    for item in items {
+        result.push(format!(
+            "  <item quantity=\"{}\">{}</item>",
+            item.quantity, item.text
+        ));
+    }
+    result.push("</plurals>".to_string());
+    result
 }
 
 // -----------------------------  test tools ------------------------------
@@ -105,6 +123,20 @@ fn plain_str(lang: &str, txt: &str) -> LocalizedString {
     LocalizedString {
         language_code: lang.to_string(),
         value: StringValue::Single(txt.to_string()),
+    }
+}
+
+fn plurals(lang: &str, quantities: Vec<PluralValue>) -> LocalizedString {
+    LocalizedString {
+        language_code: lang.to_string(),
+        value: StringValue::Plural { quantities },
+    }
+}
+
+fn plural_val(quantity: &str, text: &str) -> PluralValue {
+    PluralValue {
+        quantity: quantity.to_string(),
+        text: text.to_string(),
     }
 }
 
@@ -125,6 +157,20 @@ fn sorted_strings(input: GenResult) -> Vec<(Locale, StrLines)> {
     result
 }
 
+fn single(name: &str, text: &str) -> Line {
+    return Line {
+        name: name.to_string(),
+        value: StringValue::Single(text.to_string()),
+    };
+}
+
+fn plural(name: &str, items: Vec<PluralValue>) -> Line {
+    return Line {
+        name: name.to_string(),
+        value: StringValue::Plural { quantities: items },
+    };
+}
+
 // ------------------------------- tests -----------------------------------
 #[test]
 fn generate_1_lang_1_str() -> Result<()> {
@@ -138,7 +184,7 @@ fn generate_1_lang_1_str() -> Result<()> {
             value: "ru".to_string(),
         },
         StrLines {
-            value: vec!["<string name=\"kek\">Кек</string>".to_string()],
+            value: vec![single("kek", "Кек")],
         },
     )]);
 
@@ -165,10 +211,7 @@ fn generate_1_lang_2_str() -> Result<()> {
             value: "ru".to_string(),
         },
         StrLines {
-            value: vec![
-                "<string name=\"kek\">Кек</string>".to_string(),
-                "<string name=\"lil\">Лил</string>".to_string(),
-            ],
+            value: vec![single("kek", "Кек"), single("lil", "Лил")],
         },
     )]);
 
@@ -207,10 +250,7 @@ fn generate_3_lang_2_str() -> Result<()> {
                 value: "ru".to_string(),
             },
             StrLines {
-                value: vec![
-                    "<string name=\"find\">Найти</string>".to_string(),
-                    "<string name=\"search\">Поиск</string>".to_string(),
-                ],
+                value: vec![single("find", "Найти"), single("search", "Поиск")],
             },
         ),
         (
@@ -218,10 +258,7 @@ fn generate_3_lang_2_str() -> Result<()> {
                 value: "en".to_string(),
             },
             StrLines {
-                value: vec![
-                    "<string name=\"find\">Find</string>".to_string(),
-                    "<string name=\"search\">Search</string>".to_string(),
-                ],
+                value: vec![single("find", "Find"), single("search", "Search")],
             },
         ),
         (
@@ -229,7 +266,7 @@ fn generate_3_lang_2_str() -> Result<()> {
                 value: "mn".to_string(),
             },
             StrLines {
-                value: vec!["<string name=\"search\">Хайх</string>".to_string()],
+                value: vec![single("search", "Хайх")],
             },
         ),
     ]);
@@ -257,7 +294,7 @@ fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
             value: "mn".to_string(),
         },
         StrLines {
-            value: vec!["<string name=\"add\">%1$s нэмэх %2$d</string>".to_string()],
+            value: vec![single("add", "%1$s нэмэх %2$d")],
         },
     )]);
 
@@ -275,6 +312,95 @@ fn generate_error_if_empty_sections() -> Result<()> {
 
     let actual = generate(&source);
     assert!(actual.is_err());
+
+    Ok(())
+}
+
+#[test]
+fn generate_1_lang_1_simple_plural() -> Result<()> {
+    let localizations_songs = vec![plurals("mn", vec![plural_val("other", "%d дуу")])];
+    let keys = vec![Key {
+        name: "songs".to_string(),
+        localizations: localizations_songs,
+    }];
+    let source = File {
+        sections: vec![Section { keys }],
+    };
+    let map = HashMap::from([(
+        Locale {
+            value: "mn".to_string(),
+        },
+        StrLines {
+            value: vec![plural(
+                "songs",
+                vec![PluralValue {
+                    quantity: "other".to_string(),
+                    text: "%d дуу".to_string(),
+                }],
+            )],
+        },
+    )]);
+    let expected = GenResult { value: map };
+    let actual = generate(&source)?;
+    assert_eq!(sorted_strings(expected), sorted_strings(actual));
+    Ok(())
+}
+
+#[test]
+fn generate_1_lang_1_str_1_plurals() -> Result<()> {
+    let localizations_chicken = vec![plain_str("en", "Chicken")];
+    let localizations_cows = vec![plurals(
+        "en",
+        vec![
+            plural_val("one", "%d cow"),
+            plural_val("two", "%d cows"),
+            plural_val("other", "33 copy-on-writes"),
+        ],
+    )];
+    let keys = vec![
+        Key {
+            name: "chicken".to_string(),
+            localizations: localizations_chicken,
+        },
+        Key {
+            name: "cows".to_string(),
+            localizations: localizations_cows,
+        },
+    ];
+    let source = File {
+        sections: vec![Section { keys }],
+    };
+    let map = HashMap::from([(
+        Locale {
+            value: "en".to_string(),
+        },
+        StrLines {
+            value: vec![
+                single("chicken", "Chicken"),
+                plural(
+                    "cows",
+                    vec![
+                        PluralValue {
+                            quantity: "one".to_string(),
+                            text: "%d cow".to_string(),
+                        },
+                        PluralValue {
+                            quantity: "two".to_string(),
+                            text: "%d cows".to_string(),
+                        },
+                        PluralValue {
+                            quantity: "other".to_string(),
+                            text: "33 copy-on-writes".to_string(),
+                        },
+                    ],
+                ),
+            ],
+        },
+    )]);
+    let expected = GenResult { value: map };
+
+    let actual = generate(&source)?;
+    assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
 }
