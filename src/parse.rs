@@ -138,13 +138,12 @@ fn key_from_locale_plural_value_map(
         IndexMap::with_capacity(raw_localizations.len());
     for (locale_name_and_quantity, string_value_opt) in raw_localizations {
         let Some(string_value) = string_value_opt else {
-            println!("skipped key \"{}\" because it's empty", locale_name_and_quantity);
+            println!("skipped key \"{}\" for \"{}\" because it's empty", locale_name_and_quantity, name);
             continue;
         };
-        let Some((locale_name, quantity)) = locale_name_and_quantity.split_once(':') else {
-            println!("skipped key \"{}\" because can't split into locale and quantity", locale_name_and_quantity);
-            continue;
-        };
+        let (locale_name, quantity) = locale_name_and_quantity
+            .split_once(':')
+            .unwrap_or_else(|| (&locale_name_and_quantity, "other"));
         let entry = localizations
             .entry(locale_name.to_string())
             .or_insert(LocalizedString {
@@ -389,6 +388,74 @@ fn parses_plural_form_keys() {
                     text: "много рублей много медведей и 2 водки".to_string()
                 }
             )
+        }
+        StringValue::Single(_) => panic!("expected plural value"),
+    }
+}
+
+#[test]
+fn parses_plural_keys_when_some_locales_miss_quantity() {
+    let mut input = IndexMap::new();
+    input.insert(
+        "en:one".to_string(),
+        Some("%d ruble %d bear and 1 vodka".to_string()),
+    );
+    input.insert(
+        "en:many".to_string(),
+        Some("%d rubles %d bears and 1 vodka".to_string()),
+    );
+    input.insert(
+        "ru".to_string(),
+        Some("%d рубль %d медведь и 1 водка".to_string()),
+    );
+    input.insert("uz".to_string(), Some("оглы углы %d маглы".to_string()));
+    let result = key_from_locale_value_map("receipt_example".to_string(), input).unwrap();
+    let loc = result.localizations;
+
+    assert_eq!(loc.len(), 3);
+    assert_eq!(loc[0].language_code, "en".to_string());
+    match &loc[0].value {
+        StringValue::Plural { quantities } => {
+            assert_eq!(
+                quantities[0],
+                PluralValue {
+                    quantity: "one".to_string(),
+                    text: "%1$d ruble %2$d bear and 1 vodka".to_string()
+                }
+            );
+            assert_eq!(
+                quantities[1],
+                PluralValue {
+                    quantity: "many".to_string(),
+                    text: "%1$d rubles %2$d bears and 1 vodka".to_string()
+                }
+            )
+        }
+        StringValue::Single(_) => panic!("expected plural value"),
+    }
+    assert_eq!(loc[1].language_code, "ru".to_string());
+    match &loc[1].value {
+        StringValue::Plural { quantities } => {
+            assert_eq!(
+                quantities[0],
+                PluralValue {
+                    quantity: "other".to_string(),
+                    text: "%1$d рубль %2$d медведь и 1 водка".to_string()
+                }
+            );
+        }
+        StringValue::Single(_) => panic!("expected plural value"),
+    }
+    assert_eq!(loc[2].language_code, "uz".to_string());
+    match &loc[2].value {
+        StringValue::Plural { quantities } => {
+            assert_eq!(
+                quantities[0],
+                PluralValue {
+                    quantity: "other".to_string(),
+                    text: "оглы углы %d маглы".to_string()
+                }
+            );
         }
         StringValue::Single(_) => panic!("expected plural value"),
     }
