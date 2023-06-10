@@ -1,0 +1,59 @@
+name: Windows Release
+on:
+  push:
+    tags: [ "*release" ]
+
+env:
+  RELEASE_ARCHIVE_NAME: utas-release
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Run tests
+      run: cargo test --verbose
+
+    - name: Run crate file tests
+      run: cargo test -p file
+
+  windows-build-release:
+    runs-on: windows-latest
+    needs:  tests
+    permissions:
+       contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Build
+      run: cargo build --release --verbose
+      
+    - name: Compress assets
+      run: |
+        cd target
+        powershell Compress-Archive -LiteralPath 'release/utas.exe' -DestinationPath '${{ env.RELEASE_ARCHIVE_NAME }}.zip'
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Utas-Windows release ${{ github.ref_name }}
+        draft: true
+        prerelease: false
+
+    - name: Upload assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ASSET_PATH: ${{ github.workspace }}/target/${{ env.RELEASE_ARCHIVE_NAME }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.ASSET_PATH }}.zip
+        asset_name: ${{ env.RELEASE_ARCHIVE_NAME }}-windows.zip
+        asset_content_type: application/zip
