@@ -7,9 +7,8 @@
     es = Él Utaso
     kz = Ұтас
     fr = Ut'ase
-    kg = Uthasu'
+    kg = Uthas"u"
 
   [twist]
     es = Compré pocas copas
     kg = Humanpu' QIch
-  
