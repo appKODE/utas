@@ -1,0 +1,21 @@
+[[Src1]]
+  [days]
+    en:one = %d day
+    en:many = %d days
+    en:other = %d other days
+    ru = %d дней
+
+  [days]
+    en = d
+    ru = дн
+
+  # this key has another order: plurals go after regular strings
+  [weeks]
+    en = w
+    ru = нд
+
+  [weeks]
+    en:one = %d week
+    en:many = %d weeks
+    en:other = %d other weeks
+    ru = %d недель

@@ -3,7 +3,13 @@ use const_format::concatcp;
 use indexmap::{map::Entry, IndexMap};
 use lazy_static::lazy_static;
 use regex::{Captures, Match, Regex};
+use std::collections::HashSet;
+use std::fmt::Error;
+use std::fs::File as FsFile;
+use std::io::{self, BufReader, Write};
+use std::io::{BufRead, BufWriter};
 use std::{borrow::Cow, fmt::format, path::Path};
+use tempfile::NamedTempFile;
 
 #[derive(Debug)]
 pub struct File {
@@ -46,7 +52,13 @@ pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
     default.case_sensitive = true;
     default.delimiters = vec!['='];
     let mut config = Ini::new_from_defaults(default);
-    let map = config.load(path)?;
+
+    // See NOTE_DEDUPLICATING_KEYS
+    let temp_file =
+        NamedTempFile::new().map_err(|_| "failed to create temporary file".to_string())?;
+    dedup_keys(&path, &temp_file).map_err(|_| "failed to dedup keys".to_string())?;
+    let map = config.load(temp_file)?;
+
     // NOTE: twine has this structure
     // [[Section1]]
     // [subsection1]
@@ -78,6 +90,37 @@ pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
     })
 }
 
+// TODO remove this function and write a custom parser
+// See NOTE_DEDUPLICATING_KEYS
+fn dedup_keys<T: AsRef<Path>, W: Write>(path: &T, temp_file: W) -> io::Result<()> {
+    let f = FsFile::open(path)?;
+    let f = BufReader::new(f);
+    let mut of = BufWriter::new(temp_file);
+    let mut keys: HashSet<String> = HashSet::new();
+
+    for line in f.lines() {
+        let l = line?;
+        let maybe_key = l.trim();
+        let out_line: String;
+        if keys.iter().any(|x| x == maybe_key) {
+            out_line = format!(
+                "[{}{}]\n",
+                maybe_key.trim_matches(|c| c == '[' || c == ']'),
+                DEDUP_SUFFIX
+            );
+        } else {
+            if maybe_key.starts_with('[') && !maybe_key.starts_with("[[") {
+                keys.insert(maybe_key.to_string());
+            }
+            out_line = format!("{}\n", maybe_key);
+        }
+        of.write(out_line.as_bytes())?;
+    }
+    Ok(())
+}
+
+const DEDUP_SUFFIX: &str = "_dedup";
+
 const PLACEHOLDER_FLAGS_WIDTH_PRECISION_LENGTH: &str =
     r"([-+0#,])?(\d+|\*)?(\.(\d+|\*))?(hh?|ll?|L|z|j|t|q)?";
 const PLACEHOLDER_PARAMETER_FLAGS_WIDTH_PRECISION_LENGTH: &str =
@@ -101,14 +144,20 @@ fn key_from_locale_value_map(
     raw_localizations: IndexMap<String, Option<String>>,
 ) -> Result<Key, String> {
     if raw_localizations.keys().any(|l| l.contains(':')) {
-        key_from_locale_plural_value_map(name, raw_localizations)
+        key_from_locale_plural_value_map(
+            name.strip_suffix(DEDUP_SUFFIX).unwrap_or(&name),
+            raw_localizations,
+        )
     } else {
-        key_from_locale_single_value_map(name, raw_localizations)
+        key_from_locale_single_value_map(
+            name.strip_suffix(DEDUP_SUFFIX).unwrap_or(&name),
+            raw_localizations,
+        )
     }
 }
 
 fn key_from_locale_single_value_map(
-    name: String,
+    name: &str,
     raw_localizations: IndexMap<String, Option<String>>,
 ) -> Result<Key, String> {
     let mut localizations: Vec<LocalizedString> = Vec::with_capacity(raw_localizations.len());
@@ -124,14 +173,14 @@ fn key_from_locale_single_value_map(
         localizations.push(loc_str)
     }
     let key = Key {
-        name,
+        name: name.to_string(),
         localizations,
     };
     Ok(key)
 }
 
 fn key_from_locale_plural_value_map(
-    name: String,
+    name: &str,
     raw_localizations: IndexMap<String, Option<String>>,
 ) -> Result<Key, String> {
     let mut localizations: IndexMap<String, LocalizedString> =
@@ -162,7 +211,7 @@ fn key_from_locale_plural_value_map(
         });
     }
     let key = Key {
-        name,
+        name: name.to_string(),
         localizations: localizations.into_iter().map(|(_, value)| value).collect(),
     };
     Ok(key)
@@ -481,3 +530,18 @@ fn parses_plural_keys_when_some_locales_miss_quantity() {
         StringValue::Single(_) => panic!("expected plural value"),
     }
 }
+
+// NOTE_DEDUPLICATING_KEYS
+// Twine format allows duplicate keys, for example there could be a plurals
+// string and a regular string with the same key name.
+// But configparser-rs library which is currently used for parsing, would
+// merge these keys in one Map entry which makes it impossible for us
+// to distinguish one localized key from another.
+//
+// Therefore we currently do *a lot* of extra work by forcefully copying
+// each file and deduplicating keys on the fly.
+// This copying is done even if no duplicates exist.
+//
+// The correct way would be to ditch configparser-rs (which is made for INI files),
+// and instead parse by ourselves: walk txt file line-by-line and as each key
+// is read, produce StringValue from it (stream-like parsing)
