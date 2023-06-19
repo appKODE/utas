@@ -43,10 +43,16 @@ fn case_android_8() -> Result<(), Box<dyn Error>> {
     basic_test_case("case8")
 }
 
+#[test]
+fn case_android_9() -> Result<(), Box<dyn Error>> {
+    basic_test_case("case9")
+}
+
 fn basic_test_case(case_rel_path: &str) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
-    let temp = assert_fs::TempDir::new()?;
+    let mut temp = assert_fs::TempDir::new()?;
+    temp = temp.into_persistent();
 
     let input = format!("tests/cases/android/{}/input", case_rel_path);
     let output = temp.path();
@@ -59,7 +65,10 @@ fn basic_test_case(case_rel_path: &str) -> Result<(), Box<dyn Error>> {
         CompareDirsContentResult::Eq => (),
         CompareDirsContentResult::Diffs(diffs) => eprintln!("{}", format_diffs(diffs)),
     }
-    assert!(CompareDirsContentResult::Eq == result, "Dirs are different. See log above");
+    assert!(
+        CompareDirsContentResult::Eq == result,
+        "Dirs are different. See log above"
+    );
     Ok(())
 }
 
@@ -84,7 +93,7 @@ fn format_diffs(diffs: &Vec<DirDiff>) -> String {
             DirDiff::FileContent { path, diffs } => {
                 format!(
                     "{}. In file {} diff content:\n {}___________________________________________________________\n\n",
-                    index, 
+                    index,
                     path,
                     format_file_diffs(diffs),
                 )
