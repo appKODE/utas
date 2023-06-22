@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Ok, Result};
+use lazy_static::lazy_static;
+use regex::{Captures, Match, Regex};
 use std::{collections::HashMap, io::Write, path::Path};
 
 use std::fs;
@@ -41,8 +43,18 @@ impl GenResult {
         file_name: &str,
         default_lang: &Option<String>,
     ) -> Result<()> {
+        lazy_static! {
+            static ref LANG_WITH_REGION_RE: Regex = Regex::new(r"-(\p{Lu})").unwrap();
+        }
         for (locale, lines) in &self.value {
-            let subpath = dir.as_ref().join(format!("values-{}", locale.value));
+            let lang = LANG_WITH_REGION_RE.replace_all(&locale.value, |caps: &Captures| {
+                format!("-r{}", caps.get(1).unwrap().as_str())
+            });
+            if !locale_code_supported_in_android(&lang) {
+                continue;
+            }
+
+            let subpath = dir.as_ref().join(format!("values-{}", lang));
             if !subpath.is_dir() {
                 fs::create_dir(&subpath)?;
             }
@@ -78,6 +90,11 @@ impl GenResult {
         }
         Ok(())
     }
+}
+
+fn locale_code_supported_in_android(code: &str) -> bool {
+    // https://stackoverflow.com/questions/17275697/is-there-any-need-to-prepare-values-zh-and-values-zh-rhk/17276279
+    return code != "zh-rHans" && code != "zh-rHant" && code != "zh-rPinyin";
 }
 
 pub fn generate(source: &File) -> Result<GenResult> {

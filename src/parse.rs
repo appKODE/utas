@@ -162,6 +162,9 @@ fn key_from_locale_single_value_map(
 ) -> Result<Key, String> {
     let mut localizations: Vec<LocalizedString> = Vec::with_capacity(raw_localizations.len());
     for (locale_name, string_value_opt) in raw_localizations {
+        if locale_name == "comment" || locale_name == "tags" {
+            continue;
+        }
         let Some(string_value) = string_value_opt else {
             println!("skipped key \"{}\" because it's empty", locale_name);
             continue;

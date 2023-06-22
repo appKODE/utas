@@ -1,8 +1,8 @@
 use assert_cmd::Command;
 use assert_fs::{self};
 use file::{CompareDirsContentResult, Diff, DirDiff};
-use std::{error::Error, path::Path};
 use std::fs::create_dir;
+use std::{error::Error, path::Path};
 
 #[test]
 fn case_android_1() -> Result<(), Box<dyn Error>> {
@@ -59,17 +59,39 @@ fn case_android_11() -> Result<(), Box<dyn Error>> {
     basic_test_case("case11", Some("mn".to_string()))
 }
 
-fn basic_test_case(case_rel_path: &str, defailt_lang: Option<String>) -> Result<(), Box<dyn Error>> {
+#[test]
+fn case_android_12() -> Result<(), Box<dyn Error>> {
+    basic_test_case("case12", None)
+}
+
+#[test]
+fn case_android_13() -> Result<(), Box<dyn Error>> {
+    basic_test_case("case13", None)
+}
+
+fn basic_test_case(
+    case_rel_path: &str,
+    defailt_lang: Option<String>,
+) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
     let mut temp = assert_fs::TempDir::new()?;
     temp = temp.into_persistent();
 
-    let input = Path::new("tests").join("cases").join("android").join(case_rel_path).join("input");
+    let input = Path::new("tests")
+        .join("cases")
+        .join("android")
+        .join(case_rel_path)
+        .join("input");
     let output = temp.path();
-    let expected = Path::new("tests").join("cases").join("android").join(case_rel_path).join("output");
+    let expected = Path::new("tests")
+        .join("cases")
+        .join("android")
+        .join(case_rel_path)
+        .join("output");
 
-    cmd.arg(Path::new(&input).as_os_str()).arg(output.as_os_str());
+    cmd.arg(Path::new(&input).as_os_str())
+        .arg(output.as_os_str());
     if defailt_lang.is_some() {
         cmd.arg(defailt_lang.unwrap());
     }

@@ -1,0 +1,10 @@
+[[Src1]]
+  [nonsense]
+    comment = Stop this nonsense!
+    en = Nonsense
+    ru = Без смысла
+
+  [sense]
+    tags = tag1,tag2
+    en = Sense
+    ru = Смысл
