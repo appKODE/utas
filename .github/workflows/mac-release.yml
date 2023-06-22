@@ -1,7 +1,7 @@
 name: MacOs Release
 on:
   push:
-    tags: [ "*release" ]
+    tags: [ "*release", "*release-mac" ]
 
 env:
   RELEASE_ARCHIVE_NAME: utas-release

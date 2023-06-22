@@ -1,7 +1,7 @@
 name: Linux Realse
 on:
   push:
-    tags: [ "*release" ]
+    tags: [ "*release", "*release-linux" ]
 
 env:
   RELEASE_ARCHIVE_NAME: utas-release
