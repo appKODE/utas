@@ -1,0 +1,8 @@
+[[Src1]]
+  [nonsense]
+    en-GB = Nonsense
+    ru-RU = Без смысла
+
+  [sense]
+    en = Sense
+    ru = Смысл
