@@ -1,7 +1,7 @@
 name: Windows Release
 on:
   push:
-    tags: [ "*release" ]
+    tags: [ "*release", "*release-win" ]
 
 env:
   RELEASE_ARCHIVE_NAME: utas-release
