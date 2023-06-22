@@ -197,6 +197,10 @@ pub fn compare_files_content(
         file1.read_line(&mut line1)?;
         file2.read_line(&mut line2)?;
 
+        // read_line does't handle \r\n if we read file on windows 
+        line1 = line1.trim().to_string();
+        line2 = line2.trim().to_string();
+
         if line1 != line2 {
             diffs.push(Diff {
                 line_number: line_number,
@@ -236,9 +240,10 @@ fn files_are_same_0() -> Result<()> {
 
 #[test]
 fn files_are_same_1() -> Result<()> {
-    let file1 = assert_fs::NamedTempFile::new("dir/file1.txt")?;
+    let dir = assert_fs::TempDir::new()?;
+    let file1 = assert_fs::NamedTempFile::new(dir.as_ref().join("file1.txt"))?;
     file1.write_str("kek")?;
-    let file2 = assert_fs::NamedTempFile::new("dir/file2.txt")?;
+    let file2 = assert_fs::NamedTempFile::new(dir.as_ref().join("file2.txt"))?;
     file2.write_str("kek")?;
     assert!(files_are_same(file1.as_ref(), file2.as_ref())?);
     Ok(())
@@ -287,15 +292,15 @@ fn dirs_are_same_0() -> Result<()> {
 #[test]
 fn dirs_are_same_2_level_nesting() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2").join("file2.txt"))?;
     dir2_file2.write_str("FILE2_CONTENT")?;
 
     assert!(dirs_contents_are_same(dir1.as_ref(), dir2.as_ref())?);
@@ -313,9 +318,9 @@ fn empty_dirs_are_same() -> Result<()> {
 #[test]
 fn dirs_are_not_same_when_one_of_them_is_empty() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
@@ -326,15 +331,15 @@ fn dirs_are_not_same_when_one_of_them_is_empty() -> Result<()> {
 #[test]
 fn dirs_are_not_same_when_paths_are_different() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path_3/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path_3").join("file2.txt"))?;
     dir2_file2.write_str("FILE2_CONTENT")?;
 
     assert!(!dirs_contents_are_same(dir1.as_ref(), dir2.as_ref())?);
@@ -350,9 +355,9 @@ fn dirs_are_not_same_when_contents_are_different() -> Result<()> {
     dir1_file2.write_str("FILE_1_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE_1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2").join("file2.txt"))?;
     dir2_file2.write_str("FILE_2_CONTENT")?;
 
     assert!(!dirs_contents_are_same(dir1.as_ref(), dir2.as_ref())?);
@@ -381,8 +386,8 @@ fn files_have_diff_content_in_1_lines() -> Result<()> {
 
     let expected = CompareContentResult::Diffs(vec![Diff {
         line_number: 3,
-        left: "chebureck\n".to_string(),
-        right: "WAAAAAA\n".to_string(),
+        left: "chebureck".to_string(),
+        right: "WAAAAAA".to_string(),
     }]);
     assert_eq!(expected, result);
     Ok(())
@@ -399,8 +404,8 @@ fn files_have_diff_content_in_2_lines() -> Result<()> {
     let expected = CompareContentResult::Diffs(vec![
         Diff {
             line_number: 3,
-            left: "chebureck\n".to_string(),
-            right: "WAAAAAA\n".to_string(),
+            left: "chebureck".to_string(),
+            right: "WAAAAAA".to_string(),
         },
         Diff {
             line_number: 4,
@@ -467,15 +472,15 @@ fn dirs_have_the_same_content() -> Result<()> {
 #[test]
 fn dirs_have_the_same_content_2_level() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2").join("file2.txt"))?;
     dir2_file2.write_str("FILE2_CONTENT")?;
 
     let result = compare_dirs_content(dir1.as_ref(), dir2.as_ref())?;
@@ -497,9 +502,9 @@ fn empty_dirs_have_the_same_content() -> Result<()> {
 #[test]
 fn dirs_have_diff_content_if_one_of_then_is_empty() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
     let dir2 = assert_fs::TempDir::new()?;
 
@@ -522,15 +527,15 @@ fn dirs_have_diff_content_if_one_of_then_is_empty() -> Result<()> {
 #[test]
 fn dirs_have_diff_content_if_files_have_different_paths() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path_3/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path_3").join("file2.txt"))?;
     dir2_file2.write_str("FILE2_CONTENT")?;
 
     let result = compare_dirs_content(dir1.as_ref(), dir2.as_ref())?;
@@ -546,15 +551,15 @@ fn dirs_have_diff_content_if_files_have_different_paths() -> Result<()> {
 #[test]
 fn dirs_have_diff_content_if_files_have_different_content() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2").join("file2.txt"))?;
     dir2_file2.write_str("FIRST_LINE\nSECOND_LINE")?;
 
     let result = compare_dirs_content(dir1.as_ref(), dir2.as_ref())?;
@@ -564,7 +569,7 @@ fn dirs_have_diff_content_if_files_have_different_content() -> Result<()> {
             Diff {
                 line_number: 1,
                 left: "FILE2_CONTENT".to_string(),
-                right: "FIRST_LINE\n".to_string(),
+                right: "FIRST_LINE".to_string(),
             },
             Diff {
                 line_number: 2,
@@ -581,15 +586,15 @@ fn dirs_have_diff_content_if_files_have_different_content() -> Result<()> {
 #[test]
 fn dirs_have_diff_content_if_files_have_different_content_and_path() -> Result<()> {
     let dir1 = assert_fs::TempDir::new()?;
-    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1/file!1.txt"))?;
+    let dir1_file1 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path1").join("file!1.txt"))?;
     dir1_file1.write_str("FILE1_CONTENT")?;
-    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2/file2.txt"))?;
+    let dir1_file2 = assert_fs::NamedTempFile::new(dir1.as_ref().join("path2").join("file2.txt"))?;
     dir1_file2.write_str("FILE2_CONTENT")?;
 
     let dir2 = assert_fs::TempDir::new()?;
-    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1/file1.txt"))?;
+    let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
-    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2/file2.txt"))?;
+    let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2").join("file2.txt"))?;
     dir2_file2.write_str("FIRST_LINE\nSECOND_LINE")?;
 
     let result = compare_dirs_content(dir1.as_ref(), dir2.as_ref())?;
@@ -604,7 +609,7 @@ fn dirs_have_diff_content_if_files_have_different_content_and_path() -> Result<(
                 Diff {
                     line_number: 1,
                     left: "FILE2_CONTENT".to_string(),
-                    right: "FIRST_LINE\n".to_string(),
+                    right: "FIRST_LINE".to_string(),
                 },
                 Diff {
                     line_number: 2,

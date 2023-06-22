@@ -2,6 +2,7 @@ use assert_cmd::Command;
 use assert_fs::{self};
 use file::{CompareDirsContentResult, Diff, DirDiff};
 use std::{error::Error, path::Path};
+use std::fs::create_dir;
 
 #[test]
 fn case_android_1() -> Result<(), Box<dyn Error>> {
@@ -54,11 +55,11 @@ fn basic_test_case(case_rel_path: &str) -> Result<(), Box<dyn Error>> {
     let mut temp = assert_fs::TempDir::new()?;
     temp = temp.into_persistent();
 
-    let input = format!("tests/cases/android/{}/input", case_rel_path);
+    let input = Path::new("tests").join("cases").join("android").join(case_rel_path).join("input");
     let output = temp.path();
-    let expected = format!("tests/cases/android/{}/output", case_rel_path);
+    let expected = Path::new("tests").join("cases").join("android").join(case_rel_path).join("output");
 
-    cmd.arg(&input).arg(output.as_os_str());
+    cmd.arg(Path::new(&input).as_os_str()).arg(output.as_os_str());
     cmd.assert().success();
     let result = file::compare_dirs_content(expected, output)?;
     match &result {
