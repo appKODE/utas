@@ -35,7 +35,12 @@ pub struct GenResult {
 }
 
 impl GenResult {
-    pub fn write(&self, dir: impl AsRef<Path>, file_name: &str) -> Result<()> {
+    pub fn write(
+        &self,
+        dir: impl AsRef<Path>,
+        file_name: &str,
+        default_lang: &Option<String>,
+    ) -> Result<()> {
         for (locale, lines) in &self.value {
             let subpath = dir.as_ref().join(format!("values-{}", locale.value));
             if !subpath.is_dir() {
@@ -46,7 +51,7 @@ impl GenResult {
                 .write(true)
                 .truncate(true)
                 .create(true)
-                .open(filepath)?;
+                .open(&filepath)?;
             file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n".as_bytes())?;
             file.write("\n".as_bytes())?;
             file.write("<resources>\n".as_bytes())?;
@@ -57,6 +62,19 @@ impl GenResult {
                 }
             }
             file.write("</resources>\n".as_bytes())?;
+            match default_lang {
+                Some(lang) => {
+                    if lang == &locale.value {
+                        let subpath = dir.as_ref().join("values");
+                        if !subpath.is_dir() {
+                            fs::create_dir(&subpath)?;
+                        }
+                        let copy = subpath.join(format!("{}.xml", file_name));
+                        fs::copy(filepath, copy)?;
+                    }
+                }
+                None => (),
+            }
         }
         Ok(())
     }

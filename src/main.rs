@@ -11,14 +11,15 @@ mod parse;
 struct Args {
     input_dir: String,
     output_dir: String,
+    default_lang: Option<String>,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    run_android_gen_pipeline(&args.input_dir, &args.output_dir)
+    run_android_gen_pipeline(&args.input_dir, &args.output_dir, &args.default_lang)
 }
 
-fn run_android_gen_pipeline(input_dir: &String, output_dir: &String) -> Result<()> {
+fn run_android_gen_pipeline(input_dir: &String, output_dir: &String, default_lang: &Option<String>) -> Result<()> {
     for src in fs::read_dir(input_dir)? {
         let src = src?;
         if src.file_type()?.is_file() {
@@ -27,6 +28,7 @@ fn run_android_gen_pipeline(input_dir: &String, output_dir: &String) -> Result<(
             generated.write(
                 output_dir, 
                 src.path().file_stem().and_then(|os_str| os_str.to_str()).ok_or(anyhow!("Cannot extract file name"))?,
+                default_lang,
             )?;
         }
     }

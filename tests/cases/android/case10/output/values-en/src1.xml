@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  <string name="general">General</string>
+  <string name="notifications">Notifications</string>
+  <string name="survey">Survey</string>
+</resources>
