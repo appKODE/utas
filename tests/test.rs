@@ -6,50 +6,60 @@ use std::fs::create_dir;
 
 #[test]
 fn case_android_1() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case1")
+    basic_test_case("case1", None)
 }
 
 #[test]
 fn case_android_2() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case2")
+    basic_test_case("case2", None)
 }
 
 #[test]
 fn case_android_3() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case3")
+    basic_test_case("case3", None)
 }
 
 #[test]
 fn case_android_4() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case4")
+    basic_test_case("case4", None)
 }
 
 #[test]
 fn case_android_5() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case5")
+    basic_test_case("case5", None)
 }
 
 #[test]
 fn case_android_6() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case6")
+    basic_test_case("case6", None)
 }
 
 #[test]
 fn case_android_7() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case7")
+    basic_test_case("case7", None)
 }
 
 #[test]
 fn case_android_8() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case8")
+    basic_test_case("case8", None)
 }
 
 #[test]
 fn case_android_9() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case9")
+    basic_test_case("case9", None)
 }
 
-fn basic_test_case(case_rel_path: &str) -> Result<(), Box<dyn Error>> {
+#[test]
+fn case_android_10() -> Result<(), Box<dyn Error>> {
+    basic_test_case("case10", Some("ru".to_string()))
+}
+
+#[test]
+fn case_android_11() -> Result<(), Box<dyn Error>> {
+    basic_test_case("case11", Some("mn".to_string()))
+}
+
+fn basic_test_case(case_rel_path: &str, defailt_lang: Option<String>) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
     let mut temp = assert_fs::TempDir::new()?;
@@ -60,6 +70,9 @@ fn basic_test_case(case_rel_path: &str) -> Result<(), Box<dyn Error>> {
     let expected = Path::new("tests").join("cases").join("android").join(case_rel_path).join("output");
 
     cmd.arg(Path::new(&input).as_os_str()).arg(output.as_os_str());
+    if defailt_lang.is_some() {
+        cmd.arg(defailt_lang.unwrap());
+    }
     cmd.assert().success();
     let result = file::compare_dirs_content(expected, output)?;
     match &result {
