@@ -71,7 +71,7 @@ fn case_android_13() -> Result<(), Box<dyn Error>> {
 
 fn basic_test_case(
     case_rel_path: &str,
-    defailt_lang: Option<String>,
+    default_lang: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
@@ -92,8 +92,8 @@ fn basic_test_case(
 
     cmd.arg(Path::new(&input).as_os_str())
         .arg(output.as_os_str());
-    if defailt_lang.is_some() {
-        cmd.arg(defailt_lang.unwrap());
+    if default_lang.is_some() {
+        cmd.arg(default_lang.unwrap());
     }
     cmd.assert().success();
     let result = file::compare_dirs_content(expected, output)?;
