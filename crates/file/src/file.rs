@@ -194,8 +194,8 @@ pub fn compare_files_content(
     let mut line_number = 1;
 
     loop {
-        file1.read_line(&mut line1)?;
-        file2.read_line(&mut line2)?;
+        let bytes1 = file1.read_line(&mut line1)?;
+        let bytes2 = file2.read_line(&mut line2)?;
 
         // read_line does't handle \r\n if we read file on windows 
         line1 = line1.trim().to_string();
@@ -211,7 +211,7 @@ pub fn compare_files_content(
 
         line_number += 1;
 
-        if line1.is_empty() && line2.is_empty() {
+        if bytes1 == 0 && bytes2 == 0 {
             break;
         }
 
@@ -595,7 +595,7 @@ fn dirs_have_diff_content_if_files_have_different_content_and_path() -> Result<(
     let dir2_file1 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path1").join("file1.txt"))?;
     dir2_file1.write_str("FILE1_CONTENT")?;
     let dir2_file2 = assert_fs::NamedTempFile::new(dir2.as_ref().join("path2").join("file2.txt"))?;
-    dir2_file2.write_str("FIRST_LINE\nSECOND_LINE")?;
+    dir2_file2.write_str("FIRST_LINE\n\nSECOND_LINE")?;
 
     let result = compare_dirs_content(dir1.as_ref(), dir2.as_ref())?;
     let expected = CompareDirsContentResult::Diffs(vec![
@@ -612,7 +612,7 @@ fn dirs_have_diff_content_if_files_have_different_content_and_path() -> Result<(
                     right: "FIRST_LINE".to_string(),
                 },
                 Diff {
-                    line_number: 2,
+                    line_number: 3,
                     left: "".to_string(),
                     right: "SECOND_LINE".to_string(),
                 },
