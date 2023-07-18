@@ -11,6 +11,34 @@ use std::io::{BufRead, BufWriter};
 use std::{borrow::Cow, fmt::format, path::Path};
 use tempfile::NamedTempFile;
 
+// Taken from
+// https://developer.android.com/guide/topics/resources/string-resource.html#StylingWithHTML
+const ANDROID_SUPPORTED_TAGS: &'static [&'static str] = &[
+    "annotation",
+    "a",
+    "i",
+    "cite",
+    "dfn",
+    "b",
+    "em",
+    "big",
+    "small",
+    "font",
+    "tt",
+    "s",
+    "strike",
+    "del",
+    "u",
+    "sup",
+    "sub",
+    "ul",
+    "li",
+    "br",
+    "div",
+    "span",
+    "p",
+];
+
 #[derive(Debug)]
 pub struct File {
     pub sections: Vec<Section>,
@@ -301,16 +329,73 @@ fn maybe_escape_characters(input: &str) -> Cow<str> {
     let needs_escaping =
         input.contains("&") || input.contains("<") || input.contains("'") || input.contains("\"");
     if needs_escaping {
-        Cow::Owned(
-            input
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace("'", "\\'")
-                .replace("\"", "\\\""),
-        )
+        if ANDROID_SUPPORTED_TAGS
+            .iter()
+            .any(|tag| input.contains(&format!("<{tag}")))
+        {
+            escape_input_with_html_tags(input)
+        } else {
+            // fast path
+            Cow::Owned(escape_with_no_html_tags(input))
+        }
     } else {
         Cow::Borrowed(input)
     }
+}
+
+fn escape_with_no_html_tags(input: &str) -> String {
+    return input
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace("'", "\\'")
+        .replace("\"", "\\\"");
+}
+
+fn escape_input_with_html_tags(input: &str) -> Cow<str> {
+    // contains [start,end) indexes of tag regions
+    let mut tag_regions: Vec<(usize, usize)> = Vec::new();
+    for tag in ANDROID_SUPPORTED_TAGS {
+        let mut start = 0;
+        while start < input.len() {
+            let Some(s) = input[start..].find(&format!("<{tag}")) else {
+                break;
+            };
+            let abs_start = start + s;
+            let Some(e) = input[abs_start + tag.len() + 1..].find(&format!("{tag}>")) else {
+                break;
+            };
+            // "annotation" + ">"
+            let abs_end = (abs_start + tag.len() + 1) + e + (tag.len() + 1);
+            tag_regions.push((abs_start, abs_end));
+            start = abs_end;
+        }
+    }
+    if tag_regions.is_empty() {
+        return Cow::Borrowed(input);
+    }
+    let mut result = String::new();
+    if tag_regions.len() == 1 {
+        let region = tag_regions[0];
+        result.push_str(&escape_with_no_html_tags(&input[0..region.0]));
+        result.push_str(&input[region.0..region.1]);
+        result.push_str(&escape_with_no_html_tags(&input[region.1..]))
+    } else {
+        tag_regions.sort_by_key(|r| r.0);
+        // fully escape parts:
+        // - before the first tag
+        // - between tags
+        // - after last tag
+        result.push_str(&escape_with_no_html_tags(&input[0..tag_regions[0].0]));
+        result.push_str(&input[tag_regions[0].0..tag_regions[0].1]);
+        for trs in tag_regions.windows(2) {
+            result.push_str(&escape_with_no_html_tags(&input[trs[0].1..trs[1].0]));
+            result.push_str(&input[trs[1].0..trs[1].1]);
+        }
+        result.push_str(&escape_with_no_html_tags(
+            &input[tag_regions[tag_regions.len() - 1].1..],
+        ));
+    }
+    return Cow::Owned(result);
 }
 
 #[test]
@@ -350,9 +435,43 @@ fn parses_multiple_placeholders_keeping_order_if_present() {
 
 #[test]
 fn parses_html_tags_and_related_characters_with_proper_escaping() {
-    let input = "У нас было <b>38</b> попугаев в <i>чистой</i> упаковке, на которой было указано: 38 < 89 && 88 >= 55".to_string();
+    for tag in ANDROID_SUPPORTED_TAGS {
+        let input = format!(
+            "У нас было <{tag}>38</{tag}> попугаев в <{tag} link=\"hello\">чистой</{tag}> \"упаковке\", на <unsupported>которой</unsupported> было указано: 38 < 89 && 88 >= 55",
+        );
+        let result = parse_localized_string_value(input).unwrap();
+        assert_eq!(
+            result,
+            format!("У нас было <{tag}>38</{tag}> попугаев в <{tag} link=\"hello\">чистой</{tag}> \\\"упаковке\\\", на &lt;unsupported>которой&lt;/unsupported> было указано: 38 &lt; 89 &amp;&amp; 88 >= 55")
+        )
+    }
+}
+
+#[test]
+fn parses_html_tags_and_related_characters_with_proper_escaping_different_tags() {
+    let input = "У нас было <b>38</b> попугаев в <i>чистой</i> упаковке".to_string();
     let result = parse_localized_string_value(input).unwrap();
-    assert_eq!(result, "У нас было &lt;b>38&lt;/b> попугаев в &lt;i>чистой&lt;/i> упаковке, на которой было указано: 38 &lt; 89 &amp;&amp; 88 >= 55");
+    assert_eq!(
+        result,
+        "У нас было <b>38</b> попугаев в <i>чистой</i> упаковке",
+    )
+}
+
+#[test]
+fn parses_html_tags_and_related_characters_with_proper_escaping_only_tag() {
+    let input = "<b>вот ведь</b>".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(result, "<b>вот ведь</b>",)
+}
+
+#[test]
+fn parses_html_tags_and_related_characters_with_proper_escaping_one_tag() {
+    let input = "Неожиданный амперсанд &, меньше < и кавычки \" и одинарные ' <a href=\"hello\">вот ведь</a>".to_string();
+    let result = parse_localized_string_value(input).unwrap();
+    assert_eq!(
+        result,
+        "Неожиданный амперсанд &amp;, меньше &lt; и кавычки \\\" и одинарные \\' <a href=\"hello\">вот ведь</a>",
+    )
 }
 
 #[test]
