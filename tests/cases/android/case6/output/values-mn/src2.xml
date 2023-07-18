@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <resources>
-  <string name="parrot_count">Бид &lt;i>цэвэр&lt;/i> савлагаатай &lt;b>38&lt;/b> тотьтой байсан бөгөөд үүнд: 38 &lt; 89 &amp;&amp; 88 >= 55</string>
+  <string name="parrot_count">Бид <i>цэвэр</i> савлагаатай <b>38</b> тотьтой байсан бөгөөд үүнд: 38 &lt; 89 &amp;&amp; 88 >= 55</string>
 </resources>

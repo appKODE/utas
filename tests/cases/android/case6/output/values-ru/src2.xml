@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <resources>
-  <string name="parrot_count">У нас было &lt;b>38&lt;/b> попугаев в &lt;i>чистой&lt;/i> упаковке, на которой было указано: 38 &lt; 89 &amp;&amp; 88 >= 55</string>
+  <string name="parrot_count">У нас было <b>38</b> попугаев в <i>чистой</i> упаковке, на которой было указано: 38 &lt; 89 &amp;&amp; 88 >= 55</string>
 </resources>
