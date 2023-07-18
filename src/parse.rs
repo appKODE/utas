@@ -79,6 +79,7 @@ pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
     let mut default = IniDefault::default();
     default.case_sensitive = true;
     default.delimiters = vec!['='];
+    default.comment_symbols = vec!['#'];
     let mut config = Ini::new_from_defaults(default);
 
     // See NOTE_DEDUPLICATING_KEYS
