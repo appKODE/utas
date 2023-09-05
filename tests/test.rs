@@ -6,70 +6,71 @@ use std::{error::Error, path::Path};
 
 #[test]
 fn case_android_1() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case1", None)
+    basic_test_case("android", "case1", None)
 }
 
 #[test]
 fn case_android_2() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case2", None)
+    basic_test_case("android", "case2", None)
 }
 
 #[test]
 fn case_android_3() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case3", None)
+    basic_test_case("android", "case3", None)
 }
 
 #[test]
 fn case_android_4() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case4", None)
+    basic_test_case("android", "case4", None)
 }
 
 #[test]
 fn case_android_5() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case5", None)
+    basic_test_case("android", "case5", None)
 }
 
 #[test]
 fn case_android_6() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case6", None)
+    basic_test_case("android", "case6", None)
 }
 
 #[test]
 fn case_android_7() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case7", None)
+    basic_test_case("android", "case7", None)
 }
 
 #[test]
 fn case_android_8() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case8", None)
+    basic_test_case("android", "case8", None)
 }
 
 #[test]
 fn case_android_9() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case9", None)
+    basic_test_case("android", "case9", None)
 }
 
 #[test]
 fn case_android_10() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case10", Some("ru".to_string()))
+    basic_test_case("android", "case10", Some("ru".to_string()))
 }
 
 #[test]
 fn case_android_11() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case11", Some("mn".to_string()))
+    basic_test_case("android", "case11", Some("mn".to_string()))
 }
 
 #[test]
 fn case_android_12() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case12", None)
+    basic_test_case("android", "case12", None)
 }
 
 #[test]
 fn case_android_13() -> Result<(), Box<dyn Error>> {
-    basic_test_case("case13", None)
+    basic_test_case("android", "case13", None)
 }
 
 fn basic_test_case(
+    platform: &str,
     case_rel_path: &str,
     default_lang: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
@@ -90,7 +91,8 @@ fn basic_test_case(
         .join(case_rel_path)
         .join("output");
 
-    cmd.arg(Path::new(&input).as_os_str())
+    cmd.arg(&platform)
+        .arg(Path::new(&input).as_os_str())
         .arg(output.as_os_str());
     if default_lang.is_some() {
         cmd.arg(default_lang.unwrap());
