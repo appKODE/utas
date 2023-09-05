@@ -81,7 +81,11 @@ fn get_all_file_paths(dir: &Path) -> Result<Vec<Box<Path>>> {
                 dirs.add(Box::from(dir.join(item.file_name()).as_ref()))
                     .unwrap();
             } else {
-                paths.push(Box::from(item.path().as_path()))
+                // TODO move it to appropriate place (in file.rs shouldn't be any platform related concrecity)
+                // Skipping macOS system file
+                if item.file_name() != ".DS_Store" {
+                    paths.push(Box::from(item.path().as_path()))
+                }
             }
         }
         if dirs.size() == 0 {

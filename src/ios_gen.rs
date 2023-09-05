@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Ok, Result};
 use lazy_static::lazy_static;
 use regex::{Captures, Match, Regex};
+use std::fmt::format;
 use std::{collections::HashMap, io::Write, path::Path};
 
 use std::fs;
@@ -23,15 +24,6 @@ pub struct Line {
     value: StringValue,
 }
 
-impl Line {
-    fn format(&self) -> Vec<String> {
-        match &self.value {
-            StringValue::Single(text) => vec![generate_str_value(&self.name, text)],
-            StringValue::Plural { quantities } => generate_plural_value(&self.name, quantities),
-        }
-    }
-}
-
 pub struct GenResult {
     value: HashMap<Locale, StrLines>,
 }
@@ -43,58 +35,63 @@ impl GenResult {
         file_name: &str,
         default_lang: &Option<String>,
     ) -> Result<()> {
-        lazy_static! {
-            static ref LANG_WITH_REGION_RE: Regex = Regex::new(r"-(\p{Lu})").unwrap();
-        }
         for (locale, lines) in &self.value {
-            let lang = LANG_WITH_REGION_RE.replace_all(&locale.value, |caps: &Captures| {
-                format!("-r{}", caps.get(1).unwrap().as_str())
-            });
-            if !locale_code_supported_in_android(&lang) {
+            if !locale_code_supported_in_ios(&locale.value) {
                 continue;
             }
 
-            let subpath = dir.as_ref().join(format!("values-{}", lang));
+            let subpath = dir.as_ref().join(format!("{}.lproj", locale.value));
             if !subpath.is_dir() {
                 fs::create_dir(&subpath)?;
             }
-            let filepath = subpath.join(format!("{}.xml", file_name));
-            let mut file = fs::OpenOptions::new()
+            let nonPluralsFilePath = subpath.join("Localizable.strings");
+            let mut nonPluralsFile = fs::OpenOptions::new()
                 .write(true)
                 .truncate(true)
                 .create(true)
-                .open(&filepath)?;
-            file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n".as_bytes())?;
-            file.write("\n".as_bytes())?;
-            file.write("<resources>\n".as_bytes())?;
+                .open(&nonPluralsFilePath)?;
+
+            let pluralsFilePath = subpath.join(format!("Localizable.stringsdict"));
+            let mut pluralsFile = fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .create(true)
+                .open(&pluralsFilePath)?;
+
+            pluralsFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".as_bytes())?;
+            pluralsFile.write("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n".as_bytes())?;
+            pluralsFile.write("<plist version=\"1.0\">\n".as_bytes())?;
+            pluralsFile.write("  <dict>\n".as_bytes())?;
+
             for line in &lines.value {
-                let formatted = line.format();
-                for item in formatted {
-                    file.write(format!("  {}\n", item).as_bytes())?;
-                }
+                match &line.value {
+                    StringValue::Single(text) => {
+                        nonPluralsFile.write(
+                            format!(
+                                "{}\n", 
+                                vec![generate_str_value(&line.name, text)].join("\n")
+                            ).as_bytes()
+                        )?
+                    },
+                    StringValue::Plural { quantities } => {
+                        pluralsFile.write(
+                            format!(
+                                "{}\n",
+                                generate_plural_value(&line.name, quantities).join("\n")
+                            ).as_bytes()
+                        )?
+                    },
+                };
             }
-            file.write("</resources>\n".as_bytes())?;
-            match default_lang {
-                Some(lang) => {
-                    if lang == &locale.value {
-                        let subpath = dir.as_ref().join("values");
-                        if !subpath.is_dir() {
-                            fs::create_dir(&subpath)?;
-                        }
-                        let copy = subpath.join(format!("{}.xml", file_name));
-                        fs::copy(filepath, copy)?;
-                    }
-                }
-                None => (),
-            }
+            pluralsFile.write("  </dict>\n".as_bytes())?;
+            pluralsFile.write("</plist>\n".as_bytes())?;
         }
         Ok(())
     }
 }
 
-fn locale_code_supported_in_android(code: &str) -> bool {
-    // https://stackoverflow.com/questions/17275697/is-there-any-need-to-prepare-values-zh-and-values-zh-rhk/17276279
-    return code != "zh-rHans" && code != "zh-rHant" && code != "zh-rPinyin";
+fn locale_code_supported_in_ios(code: &str) -> bool {
+    return true;
 }
 
 pub fn generate(source: &File) -> Result<GenResult> {
@@ -134,22 +131,32 @@ pub fn generate(source: &File) -> Result<GenResult> {
 
 fn generate_str_value(str_name: &str, str_value: &str) -> String {
     String::from(format!(
-        "<string name=\"{}\">{}</string>",
+        "\"{}\" = \"{}\";",
         str_name, str_value
     ))
 }
 
 fn generate_plural_value(str_name: &String, items: &Vec<PluralValue>) -> Vec<String> {
     let mut result: Vec<String> = Vec::with_capacity(items.len() + 2);
-    result.push(format!("<plurals name=\"{}\">", str_name));
+    result.push(format!("    <key>\"{}\"</key>", str_name));
+
+    result.push("    <dict>".to_string());
+
+    result.push("      <key>NSStringLocalizedFormatKey</key>".to_string());
+    result.push("      <string>%#@value@</string>".to_string());
+    result.push("      <key>value</key>".to_string());
+
+    result.push("      <dict>".to_string());
+
+    result.push("        <key>NSStringFormatValueTypeKey</key>".to_string());
+    result.push("        <string>d</string>".to_string());
 
     for item in items {
-        result.push(format!(
-            "  <item quantity=\"{}\">{}</item>",
-            item.quantity, item.text
-        ));
+        result.push(format!("        <key>{}</key>", item.quantity));
+        result.push(format!("        <string>{}</string>", item.text));
     }
-    result.push("</plurals>".to_string());
+    result.push("      </dict>".to_string());
+    result.push("    </dict>".to_string());
     result
 }
 
