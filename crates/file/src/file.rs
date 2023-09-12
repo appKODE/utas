@@ -82,6 +82,7 @@ fn get_all_file_paths(dir: &Path) -> Result<Vec<Box<Path>>> {
                     .unwrap();
             } else {
                 // TODO move it to appropriate place (in file.rs shouldn't be any platform related concrecity)
+                // https://github.com/appKODE/utas/issues/33
                 // Skipping macOS system file
                 if item.file_name() != ".DS_Store" {
                     paths.push(Box::from(item.path().as_path()))
