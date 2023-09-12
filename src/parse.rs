@@ -85,7 +85,7 @@ pub fn parse<T: AsRef<Path>>(path: T) -> Result<File, String> {
     // See NOTE_DEDUPLICATING_KEYS
     let temp_file =
         NamedTempFile::new().map_err(|_| "failed to create temporary file".to_string())?;
-    dedup_keys(&path, &temp_file).map_err(|_| "failed to dedup keys".to_string())?;
+    dedup_keys(&path, &temp_file).map_err(|error| (error.to_string() + " failed to dedup keys").to_string())?;
     let map = config.load(temp_file)?;
 
     // NOTE: twine has this structure

@@ -1,7 +1,4 @@
 use anyhow::{anyhow, Ok, Result};
-use lazy_static::lazy_static;
-use regex::{Captures, Match, Regex};
-use std::fmt::format;
 use std::{collections::HashMap, io::Write, path::Path};
 
 use std::fs;
@@ -28,11 +25,16 @@ pub struct GenResult {
     value: HashMap<Locale, StrLines>,
 }
 
+impl Default for StrLines {
+    fn default() -> Self {
+        Self { value: Default::default() }
+    }
+}
+
 impl GenResult {
     pub fn write(
         &self,
         dir: impl AsRef<Path>,
-        file_name: &str,
         default_lang: &Option<String>,
     ) -> Result<()> {
         for (locale, lines) in &self.value {
@@ -94,7 +96,28 @@ fn locale_code_supported_in_ios(code: &str) -> bool {
     return true;
 }
 
-pub fn generate(source: &File) -> Result<GenResult> {
+pub fn generate(sources: Vec<File>) -> Result<GenResult> {
+    let generated_files: Vec<_> = sources.iter().map( |src| {
+        generate_for_file(src)
+    }).collect();
+
+    if generated_files.is_empty() {
+        return Err(anyhow!("Expected at least one successfuly generated file"));
+    }
+
+    let mut result: HashMap<Locale, StrLines> = HashMap::new();
+    for generated_file in generated_files {
+        for (locale, lines) in generated_file? {
+            let mut current_lines_for_locale = result.get_mut(&locale).cloned().unwrap_or_default();
+            current_lines_for_locale.value.extend(lines.value);
+            result.insert(locale, current_lines_for_locale.to_owned());
+        }
+    }
+
+    Ok(GenResult { value: result })
+}
+
+fn generate_for_file(source: &File) -> Result<HashMap<Locale, StrLines>> {
     if source.sections.len() > 1 {
         panic!("Expected only one section currently")
     };
@@ -126,19 +149,19 @@ pub fn generate(source: &File) -> Result<GenResult> {
         }
     }
 
-    Ok(GenResult { value: result })
+    Ok(result)
 }
 
 fn generate_str_value(str_name: &str, str_value: &str) -> String {
     String::from(format!(
-        "\"{}\" = \"{}\";",
+        "\"{}\" = \"{}\";\n",
         str_name, str_value
     ))
 }
 
 fn generate_plural_value(str_name: &String, items: &Vec<PluralValue>) -> Vec<String> {
     let mut result: Vec<String> = Vec::with_capacity(items.len() + 2);
-    result.push(format!("    <key>\"{}\"</key>", str_name));
+    result.push(format!("    <key>{}</key>", str_name));
 
     result.push("    <dict>".to_string());
 
@@ -148,6 +171,8 @@ fn generate_plural_value(str_name: &String, items: &Vec<PluralValue>) -> Vec<Str
 
     result.push("      <dict>".to_string());
 
+    result.push("        <key>NSStringFormatSpecTypeKey</key>".to_string());
+    result.push("        <string>NSStringPluralRuleType</string>".to_string());
     result.push("        <key>NSStringFormatValueTypeKey</key>".to_string());
     result.push("        <string>d</string>".to_string());
 
@@ -232,7 +257,7 @@ fn generate_1_lang_1_str() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(&source)?;
+    let actual = generate(vec![source])?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -259,7 +284,7 @@ fn generate_1_lang_2_str() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(&source)?;
+    let actual = generate(vec![source])?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -315,7 +340,7 @@ fn generate_3_lang_2_str() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(&source)?;
+    let actual = generate(vec![source])?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -342,7 +367,7 @@ fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(&source)?;
+    let actual = generate(vec![source])?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -352,7 +377,7 @@ fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
 fn generate_error_if_empty_sections() -> Result<()> {
     let source = File { sections: vec![] };
 
-    let actual = generate(&source);
+    let actual = generate(vec![source]);
     assert!(actual.is_err());
 
     Ok(())
@@ -383,7 +408,7 @@ fn generate_1_lang_1_simple_plural() -> Result<()> {
         },
     )]);
     let expected = GenResult { value: map };
-    let actual = generate(&source)?;
+    let actual = generate(vec![source])?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
     Ok(())
 }
@@ -441,7 +466,7 @@ fn generate_1_lang_1_str_1_plurals() -> Result<()> {
     )]);
     let expected = GenResult { value: map };
 
-    let actual = generate(&source)?;
+    let actual = generate(vec![source])?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())

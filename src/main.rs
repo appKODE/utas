@@ -62,20 +62,19 @@ fn run_ios_gen_pipeline(
     output_dir: &String,
     default_lang: &Option<String>,
 ) -> Result<()> {
-    for src in fs::read_dir(input_dir)? {
-        let src = src?;
-        if src.file_type()?.is_file() {
-            let parsed = parser::parse(src.path()).map_err(|err| anyhow!(err))?;
-            let generated = ios_gen::generate(&parsed)?;
-            generated.write(
-                output_dir,
-                src.path()
-                    .file_stem()
-                    .and_then(|os_str| os_str.to_str())
-                    .ok_or(anyhow!("Cannot extract file name"))?,
-                default_lang,
-            )?;
+    let parsed_files: Vec<_> = fs::read_dir(input_dir)?.filter_map( |src| {
+        let src = src.ok()?;
+        // TODO: https://github.com/appKODE/utas/issues/33
+        if src.file_type().ok()?.is_file() && src.file_name() != ".DS_Store" {
+            let parsed = parser::parse(src.path()).map_err(|err| anyhow!(err)).ok()?;
+            Some(parsed)
+        } else {
+            None
         }
-    }
+    }).collect();
+
+    let generated = ios_gen::generate(parsed_files)?;
+    generated.write(output_dir,default_lang)?;
+
     Ok(())
 }
