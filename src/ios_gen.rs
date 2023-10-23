@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Ok, Result};
-use std::{collections::HashMap, io::Write, path::Path};
-
+use std::{collections::HashMap, collections::HashSet};
+use std::{io::Write, path::Path, borrow::BorrowMut};
+use std::{hash::Hash, hash::Hasher};
 use std::fs;
 
 use crate::parse::{File, Key, LocalizedString, PluralValue, Section, StringValue};
@@ -15,10 +16,22 @@ pub struct StrLines {
     value: Vec<Line>,
 }
 
-#[derive(PartialEq, Eq, Debug, PartialOrd, Ord, Clone)]
+#[derive(Eq, Debug, PartialOrd, Ord, Clone)]
 pub struct Line {
     name: String,
     value: StringValue,
+}
+
+impl Hash for Line {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
+impl PartialEq for Line {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 pub struct GenResult {
@@ -35,7 +48,7 @@ impl GenResult {
     pub fn write(
         &self,
         dir: impl AsRef<Path>,
-        default_lang: &Option<String>,
+        file_name: &str,
     ) -> Result<()> {
         for (locale, lines) in &self.value {
             if !locale_code_supported_in_ios(&locale.value) {
@@ -46,29 +59,29 @@ impl GenResult {
             if !subpath.is_dir() {
                 fs::create_dir(&subpath)?;
             }
-            let nonPluralsFilePath = subpath.join("Localizable.strings");
-            let mut nonPluralsFile = fs::OpenOptions::new()
+            let non_plurals_file_path = subpath.join(format!("{}.strings", file_name));
+            let mut non_plurals_file = fs::OpenOptions::new()
                 .write(true)
                 .truncate(true)
                 .create(true)
-                .open(&nonPluralsFilePath)?;
+                .open(&non_plurals_file_path)?;
 
-            let pluralsFilePath = subpath.join(format!("Localizable.stringsdict"));
-            let mut pluralsFile = fs::OpenOptions::new()
+            let plurals_file_path = subpath.join(format!("{}.stringsdict", file_name));
+            let mut plurals_file = fs::OpenOptions::new()
                 .write(true)
                 .truncate(true)
                 .create(true)
-                .open(&pluralsFilePath)?;
+                .open(&plurals_file_path)?;
 
-            pluralsFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".as_bytes())?;
-            pluralsFile.write("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n".as_bytes())?;
-            pluralsFile.write("<plist version=\"1.0\">\n".as_bytes())?;
-            pluralsFile.write("  <dict>\n".as_bytes())?;
+            plurals_file.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".as_bytes())?;
+            plurals_file.write("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n".as_bytes())?;
+            plurals_file.write("<plist version=\"1.0\">\n".as_bytes())?;
+            plurals_file.write("  <dict>\n".as_bytes())?;
 
             for line in &lines.value {
                 match &line.value {
                     StringValue::Single(text) => {
-                        nonPluralsFile.write(
+                        non_plurals_file.write(
                             format!(
                                 "{}\n", 
                                 vec![generate_str_value(&line.name, text)].join("\n")
@@ -76,7 +89,7 @@ impl GenResult {
                         )?
                     },
                     StringValue::Plural { quantities } => {
-                        pluralsFile.write(
+                        plurals_file.write(
                             format!(
                                 "{}\n",
                                 generate_plural_value(&line.name, quantities).join("\n")
@@ -85,9 +98,10 @@ impl GenResult {
                     },
                 };
             }
-            pluralsFile.write("  </dict>\n".as_bytes())?;
-            pluralsFile.write("</plist>\n".as_bytes())?;
+            plurals_file.write("  </dict>\n".as_bytes())?;
+            plurals_file.write("</plist>\n".as_bytes())?;
         }
+
         Ok(())
     }
 }
@@ -96,7 +110,7 @@ fn locale_code_supported_in_ios(code: &str) -> bool {
     return true;
 }
 
-pub fn generate(sources: Vec<File>) -> Result<GenResult> {
+pub fn generate(sources: Vec<File>, default_lang: &Option<String>) -> Result<GenResult> {
     let generated_files: Vec<_> = sources.iter().map( |src| {
         generate_for_file(src)
     }).collect();
@@ -108,11 +122,13 @@ pub fn generate(sources: Vec<File>) -> Result<GenResult> {
     let mut result: HashMap<Locale, StrLines> = HashMap::new();
     for generated_file in generated_files {
         for (locale, lines) in generated_file? {
-            let mut current_lines_for_locale = result.get_mut(&locale).cloned().unwrap_or_default();
-            current_lines_for_locale.value.extend(lines.value);
-            result.insert(locale, current_lines_for_locale.to_owned());
+            result.entry(locale)
+                .and_modify(|current_lines| current_lines.value.extend(lines.clone().value))
+                .or_insert(lines.clone());
         }
     }
+
+    fill_absent_translations(result.borrow_mut(), default_lang);
 
     Ok(GenResult { value: result })
 }
@@ -150,6 +166,24 @@ fn generate_for_file(source: &File) -> Result<HashMap<Locale, StrLines>> {
     }
 
     Ok(result)
+}
+
+fn fill_absent_translations(map: &mut HashMap<Locale, StrLines>, default_lang: &Option<String>) {
+    match default_lang {
+        Some(lang) => {
+            let default_strings = map.get(&Locale { value: lang.clone() }).unwrap();
+            let set_with_default_strings: HashSet<Line> = default_strings.value.clone().into_iter().collect();
+            for locale in map.clone().keys() {
+                if locale.value != *lang {
+                    let current_entry = map.get(locale).unwrap();
+                    let set_for_locale: HashSet<Line> = current_entry.value.clone().into_iter().collect();
+                    let difference: HashSet<_> = set_with_default_strings.difference(&set_for_locale).map(|x| x.clone()).collect();
+                    map.entry(locale.clone()).and_modify(|f| f.value.extend(difference));
+                }
+            }
+        }
+        None => return
+    }
 }
 
 fn generate_str_value(str_name: &str, str_value: &str) -> String {
@@ -257,7 +291,7 @@ fn generate_1_lang_1_str() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(vec![source])?;
+    let actual = generate(vec![source], &None)?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -284,7 +318,7 @@ fn generate_1_lang_2_str() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(vec![source])?;
+    let actual = generate(vec![source], &None)?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -340,7 +374,7 @@ fn generate_3_lang_2_str() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(vec![source])?;
+    let actual = generate(vec![source], &None)?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -367,7 +401,7 @@ fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
 
     let expected = GenResult { value: map };
 
-    let actual = generate(vec![source])?;
+    let actual = generate(vec![source], &None)?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
@@ -377,7 +411,7 @@ fn generate_1_lang_1_str_2_placeholders() -> Result<()> {
 fn generate_error_if_empty_sections() -> Result<()> {
     let source = File { sections: vec![] };
 
-    let actual = generate(vec![source]);
+    let actual = generate(vec![source], &None);
     assert!(actual.is_err());
 
     Ok(())
@@ -408,7 +442,7 @@ fn generate_1_lang_1_simple_plural() -> Result<()> {
         },
     )]);
     let expected = GenResult { value: map };
-    let actual = generate(vec![source])?;
+    let actual = generate(vec![source], &None)?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
     Ok(())
 }
@@ -466,7 +500,7 @@ fn generate_1_lang_1_str_1_plurals() -> Result<()> {
     )]);
     let expected = GenResult { value: map };
 
-    let actual = generate(vec![source])?;
+    let actual = generate(vec![source], &None)?;
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())

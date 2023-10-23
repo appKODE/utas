@@ -13,11 +13,12 @@ struct Args {
     input_dir: String,
     output_dir: String,
     default_lang: Option<String>,
+    file_name: Option<String>,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    run_gen_pipeline(&args.platform, &args.input_dir, &args.output_dir, &args.default_lang)
+    run_gen_pipeline(&args.platform, &args.input_dir, &args.output_dir, &args.default_lang, &args.file_name)
 }
 
 fn run_gen_pipeline(
@@ -25,11 +26,12 @@ fn run_gen_pipeline(
     input_dir: &String,
     output_dir: &String,
     default_lang: &Option<String>,
+    file_name: &Option<String>,
 ) -> Result<()> {
     // TODO add enum for Platform parameter
     return match platform.as_str() {
         "android" => run_android_gen_pipeline(input_dir, output_dir, default_lang),
-        "ios" => run_ios_gen_pipeline(input_dir, output_dir, default_lang),
+        "ios" => run_ios_gen_pipeline(input_dir, output_dir, default_lang, file_name),
         _ => panic!("Invalid platform parameter. Use android or ios")
     };
 }
@@ -61,6 +63,7 @@ fn run_ios_gen_pipeline(
     input_dir: &String,
     output_dir: &String,
     default_lang: &Option<String>,
+    file_name: &Option<String>,
 ) -> Result<()> {
     let parsed_files: Vec<_> = fs::read_dir(input_dir)?.filter_map( |src| {
         let src = src.ok()?;
@@ -73,8 +76,9 @@ fn run_ios_gen_pipeline(
         }
     }).collect();
 
-    let generated = ios_gen::generate(parsed_files)?;
-    generated.write(output_dir,default_lang)?;
+    let generated = ios_gen::generate(parsed_files, default_lang)?;
+    let uwrapped_file_name = file_name.clone().unwrap_or("Localizable".to_string());
+    generated.write(output_dir, &uwrapped_file_name)?;
 
     Ok(())
 }
