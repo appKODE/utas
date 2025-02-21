@@ -166,7 +166,7 @@ const NON_NUMBERED_PLACEHOLDER_REGEX: &str = concatcp!(
     PLACEHOLDER_TYPES,
     ")"
 );
-const SINGLE_PERCENT_REGEX: &str = r"([^%][%][^%]|[^%][%]$|^[%]$)";
+const SINGLE_PERCENT_REGEX: &str = r"([^%][%][^%]|[^%][%]$|^[%]$|^[%][^%])";
 
 fn key_from_locale_value_map(
     name: String,
@@ -502,11 +502,11 @@ fn parses_double_quotes_with_proper_escaping() {
 
 #[test]
 fn replaces_percent_with_double_percent_wihout_placeholders() {
-    let input = "100% Lorem ipsum amet 8% and %% untouched, ending with 42%".to_string();
+    let input = "% of 100% Lorem ipsum amet 8% and %% untouched, ending with 42%".to_string();
     let result = parse_localized_string_value(input).unwrap();
     assert_eq!(
         result,
-        "100%% Lorem ipsum amet 8%% and %% untouched, ending with 42%%"
+        "%% of 100%% Lorem ipsum amet 8%% and %% untouched, ending with 42%%"
     );
 }
 
