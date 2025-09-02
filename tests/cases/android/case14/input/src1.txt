@@ -1,0 +1,4 @@
+[[Src1]]
+  [esim_plan]
+    ru-RU = План eSIM
+    zh-Hans = eSIM套餐

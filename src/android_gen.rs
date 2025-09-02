@@ -2,7 +2,7 @@ use anyhow::{anyhow, Ok, Result};
 use lazy_static::lazy_static;
 use regex::{Captures, Match, Regex};
 use std::{collections::HashMap, io::Write, path::Path};
-
+use std::borrow::Cow;
 use std::fs;
 
 use crate::parse::{File, Key, LocalizedString, PluralValue, Section, StringValue};
@@ -50,9 +50,7 @@ impl GenResult {
             let lang = LANG_WITH_REGION_RE.replace_all(&locale.value, |caps: &Captures| {
                 format!("-r{}", caps.get(1).unwrap().as_str())
             });
-            if !locale_code_supported_in_android(&lang) {
-                continue;
-            }
+            let lang = update_special_locales(&lang);
 
             let subpath = dir.as_ref().join(format!("values-{}", lang));
             if !subpath.is_dir() {
@@ -92,9 +90,16 @@ impl GenResult {
     }
 }
 
-fn locale_code_supported_in_android(code: &str) -> bool {
-    // https://stackoverflow.com/questions/17275697/is-there-any-need-to-prepare-values-zh-and-values-zh-rhk/17276279
-    return code != "zh-rHans" && code != "zh-rHant" && code != "zh-rPinyin";
+// https://stackoverflow.com/questions/17275697/is-there-any-need-to-prepare-values-zh-and-values-zh-rhk/17276279
+fn update_special_locales(code: &str) -> String {
+    return match code {
+        "zh-rHans" | "zh-rHant" | "zh-rPinyin" => {
+            "zh-rCN".to_string()
+        }
+        &_ => {
+            code.to_string()
+        }
+    };
 }
 
 pub fn generate(source: &File) -> Result<GenResult> {
