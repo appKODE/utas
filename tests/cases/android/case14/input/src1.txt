@@ -2,3 +2,4 @@
   [esim_plan]
     ru-RU = План eSIM
     zh-Hans = eSIM套餐
+    zh-Hant = eSIM計劃
