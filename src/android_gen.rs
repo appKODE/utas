@@ -93,8 +93,11 @@ impl GenResult {
 // https://stackoverflow.com/questions/17275697/is-there-any-need-to-prepare-values-zh-and-values-zh-rhk/17276279
 fn update_special_locales(code: &str) -> String {
     return match code {
-        "zh-rHans" | "zh-rHant" | "zh-rPinyin" => {
-            "zh-rCN".to_string()
+        "zh-rHans" | "zh-rPinyin" => {
+            "b+zh+Hans".to_string()
+        }
+        "zh-rHant" => {
+            "b+zh+Hant".to_string()
         }
         &_ => {
             code.to_string()
