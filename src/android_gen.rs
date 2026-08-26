@@ -90,6 +90,14 @@ impl GenResult {
     }
 }
 
+// Languages renamed in ISO 639-1 after java.util.Locale had frozen their codes. Locale keeps
+// reporting the obsolete code, and Android resolves resources by what Locale reports, so a
+// "values-he" directory never matches a requested Hebrew locale and the UI falls back to the
+// default language. Only the generated directory is renamed: the source files keep the modern
+// tag, which is what Apple platforms and locales_config.xml expect.
+// https://developer.android.com/reference/java/util/Locale#getLanguage()
+const OBSOLETE_LANGUAGE_CODES: [(&str, &str); 2] = [("he", "iw"), ("id", "in")];
+
 // https://stackoverflow.com/questions/17275697/is-there-any-need-to-prepare-values-zh-and-values-zh-rhk/17276279
 fn update_special_locales(code: &str) -> String {
     return match code {
@@ -100,9 +108,21 @@ fn update_special_locales(code: &str) -> String {
             "b+zh+Hant".to_string()
         }
         &_ => {
-            code.to_string()
+            update_obsolete_language(code)
         }
     };
+}
+
+fn update_obsolete_language(code: &str) -> String {
+    for (modern, obsolete) in OBSOLETE_LANGUAGE_CODES {
+        if code == modern {
+            return obsolete.to_string();
+        }
+        if let Some(region) = code.strip_prefix(&format!("{}-", modern)) {
+            return format!("{}-{}", obsolete, region);
+        }
+    }
+    code.to_string()
 }
 
 pub fn generate(source: &File) -> Result<GenResult> {
@@ -446,4 +466,20 @@ fn generate_1_lang_1_str_1_plurals() -> Result<()> {
     assert_eq!(sorted_strings(expected), sorted_strings(actual));
 
     Ok(())
+}
+
+#[test]
+fn update_obsolete_language_codes() {
+    assert_eq!("iw", update_special_locales("he"));
+    assert_eq!("in", update_special_locales("id"));
+    assert_eq!("iw-rIL", update_special_locales("he-rIL"));
+    assert_eq!("in-rID", update_special_locales("id-rID"));
+}
+
+#[test]
+fn keep_locales_that_only_start_with_an_obsolete_language() {
+    assert_eq!("hex", update_special_locales("hex"));
+    assert_eq!("ido", update_special_locales("ido"));
+    assert_eq!("hi", update_special_locales("hi"));
+    assert_eq!("is", update_special_locales("is"));
 }
