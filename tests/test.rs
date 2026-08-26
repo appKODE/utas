@@ -74,6 +74,11 @@ fn case_android_14() -> Result<(), Box<dyn Error>> {
     basic_test_case("android", "case14", None)
 }
 
+#[test]
+fn case_android_15() -> Result<(), Box<dyn Error>> {
+    basic_test_case("android", "case15", None)
+}
+
 fn basic_test_case(
     platform: &str,
     case_rel_path: &str,

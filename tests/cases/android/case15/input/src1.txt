@@ -1,0 +1,6 @@
+[[Src1]]
+  [error_title]
+    he = שגיאה
+    he-IL = שגיאה
+    id = Kesalahan
+    hi = गड़बड़ी
