@@ -1,0 +1,10 @@
+[[Src1]]
+  [greeting]
+    en = Hello %@
+    ru = Привет %@
+
+  [cows]
+    en:one = %d cow
+    en:other = %d cows
+    ru:one = %d корова
+    ru:other = %d коров

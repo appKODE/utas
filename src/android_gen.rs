@@ -469,6 +469,69 @@ fn generate_1_lang_1_str_1_plurals() -> Result<()> {
 }
 
 #[test]
+fn write_creates_values_dirs_with_xml_files() -> Result<()> {
+    let temp = assert_fs::TempDir::new()?;
+    let source = File {
+        sections: vec![Section {
+            keys: vec![
+                key("hello", vec![plain_str("en", "Hello"), plain_str("en-GB", "Hello there")]),
+                Key {
+                    name: "cows".to_string(),
+                    localizations: vec![plurals(
+                        "en",
+                        vec![plural_val("one", "%d cow"), plural_val("other", "%d cows")],
+                    )],
+                },
+            ],
+        }],
+    };
+
+    let generated = generate(&source)?;
+    generated.write(temp.path(), "strings", &None)?;
+
+    let en_path = temp.path().join("values-en").join("strings.xml");
+    assert!(en_path.is_file());
+    let en_content = fs::read_to_string(&en_path)?;
+    assert!(en_content.contains("<string name=\"hello\">Hello</string>"));
+    assert!(en_content.contains("<plurals name=\"cows\">"));
+    assert!(en_content.contains("<item quantity=\"one\">%d cow</item>"));
+    assert!(en_content.starts_with("<?xml version=\"1.0\" encoding=\"utf-8\"?>"));
+
+    // region-qualified locale gets converted to the Android "-r" region qualifier
+    let gb_path = temp.path().join("values-en-rGB").join("strings.xml");
+    assert!(gb_path.is_file());
+
+    // no default_lang was given, so no fallback "values" dir should be created
+    assert!(!temp.path().join("values").is_dir());
+
+    Ok(())
+}
+
+#[test]
+fn write_copies_default_lang_into_values_dir() -> Result<()> {
+    let temp = assert_fs::TempDir::new()?;
+    let source = File {
+        sections: vec![Section {
+            keys: vec![key("hello", vec![plain_str("en", "Hello"), plain_str("ru", "Привет")])],
+        }],
+    };
+
+    let generated = generate(&source)?;
+    generated.write(temp.path(), "strings", &Some("en".to_string()))?;
+
+    let default_path = temp.path().join("values").join("strings.xml");
+    assert!(default_path.is_file());
+    let default_content = fs::read_to_string(&default_path)?;
+    let en_content = fs::read_to_string(temp.path().join("values-en").join("strings.xml"))?;
+    assert_eq!(default_content, en_content);
+
+    // ru is not the default lang, so it stays only under values-ru
+    assert!(temp.path().join("values-ru").join("strings.xml").is_file());
+
+    Ok(())
+}
+
+#[test]
 fn update_obsolete_language_codes() {
     assert_eq!("iw", update_special_locales("he"));
     assert_eq!("in", update_special_locales("id"));

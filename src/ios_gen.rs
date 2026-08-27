@@ -448,6 +448,114 @@ fn generate_1_lang_1_simple_plural() -> Result<()> {
 }
 
 #[test]
+fn fill_absent_translations_does_nothing_without_default_lang() {
+    let mut map = HashMap::from([(
+        Locale { value: "en".to_string() },
+        StrLines { value: vec![single("hello", "Hello")] },
+    )]);
+    let expected = map.clone();
+
+    fill_absent_translations(&mut map, &None);
+
+    assert_eq!(map, expected);
+}
+
+#[test]
+fn fill_absent_translations_copies_missing_default_strings() {
+    let mut map = HashMap::from([
+        (
+            Locale { value: "en".to_string() },
+            StrLines {
+                value: vec![single("hello", "Hello"), single("bye", "Bye")],
+            },
+        ),
+        (
+            Locale { value: "ru".to_string() },
+            StrLines { value: vec![single("hello", "Привет")] },
+        ),
+    ]);
+
+    fill_absent_translations(&mut map, &Some("en".to_string()));
+
+    let ru = map.get(&Locale { value: "ru".to_string() }).unwrap();
+    assert_eq!(ru.value.len(), 2);
+    assert!(ru.value.contains(&single("hello", "Привет")));
+    // missing "bye" key gets filled in with the default language's value
+    assert!(ru.value.contains(&single("bye", "Bye")));
+}
+
+#[test]
+fn fill_absent_translations_does_not_duplicate_existing_keys() {
+    let mut map = HashMap::from([
+        (
+            Locale { value: "en".to_string() },
+            StrLines { value: vec![single("hello", "Hello")] },
+        ),
+        (
+            Locale { value: "ru".to_string() },
+            StrLines { value: vec![single("hello", "Привет")] },
+        ),
+    ]);
+
+    fill_absent_translations(&mut map, &Some("en".to_string()));
+
+    let ru = map.get(&Locale { value: "ru".to_string() }).unwrap();
+    assert_eq!(ru.value.len(), 1);
+    assert_eq!(ru.value[0].value, StringValue::Single("Привет".to_string()));
+}
+
+#[test]
+fn fill_absent_translations_leaves_default_lang_untouched() {
+    let mut map = HashMap::from([(
+        Locale { value: "en".to_string() },
+        StrLines { value: vec![single("hello", "Hello")] },
+    )]);
+    let expected = map.clone();
+
+    fill_absent_translations(&mut map, &Some("en".to_string()));
+
+    assert_eq!(map, expected);
+}
+
+#[test]
+fn write_creates_lproj_dirs_with_strings_and_stringsdict() -> Result<()> {
+    let temp = assert_fs::TempDir::new()?;
+    let source = File {
+        sections: vec![Section {
+            keys: vec![
+                key("hello", vec![plain_str("en", "Hello")]),
+                Key {
+                    name: "cows".to_string(),
+                    localizations: vec![plurals(
+                        "en",
+                        vec![plural_val("one", "%d cow"), plural_val("other", "%d cows")],
+                    )],
+                },
+            ],
+        }],
+    };
+
+    let generated = generate(vec![source], &None)?;
+    generated.write(temp.path(), "Localizable")?;
+
+    let strings_path = temp.path().join("en.lproj").join("Localizable.strings");
+    let stringsdict_path = temp.path().join("en.lproj").join("Localizable.stringsdict");
+    assert!(strings_path.is_file());
+    assert!(stringsdict_path.is_file());
+
+    let strings_content = fs::read_to_string(&strings_path)?;
+    assert_eq!(strings_content, "\"hello\" = \"Hello\";\n\n");
+
+    let stringsdict_content = fs::read_to_string(&stringsdict_path)?;
+    assert!(stringsdict_content.contains("<key>cows</key>"));
+    assert!(stringsdict_content.contains("<key>one</key>"));
+    assert!(stringsdict_content.contains("<string>%d cow</string>"));
+    assert!(stringsdict_content.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+
+    Ok(())
+}
+
+#[test]
 fn generate_1_lang_1_str_1_plurals() -> Result<()> {
     let localizations_chicken = vec![plain_str("en", "Chicken")];
     let localizations_cows = vec![plurals(
