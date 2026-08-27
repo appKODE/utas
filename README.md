@@ -98,10 +98,9 @@ utas ios ./twine ./MyApp/Resources en
 │       ├── android/case*/  # input/ + output/ fixture pairs for Android
 │       └── ios/case*/      # input/ + output/ fixture pairs for iOS
 ├── .github/workflows/
-│   ├── push.yml            # build + test on every push/PR to master
-│   ├── linux-release.yml   # build + publish a Linux release binary
-│   ├── mac-release.yml     # build + publish a macOS release binary
-│   └── win-release.yml     # build + publish a Windows release binary
+│   ├── push.yml             # build + test on every push/PR to master
+│   └── release.yml          # build + publish release binaries for
+│                              # Linux/macOS/Windows on a release tag
 ├── Cargo.toml               # utas binary crate manifest
 ├── Cargo.lock
 └── LICENSE
@@ -117,26 +116,35 @@ cargo test -p file       # tests for the file-comparison helper crate
 
 ## Releasing via GitHub Actions
 
-Releases are fully automated: pushing a git tag with the right suffix
-triggers a build for the corresponding platform(s) and publishes a
-**draft** GitHub Release with the compiled binary attached.
+Releases are fully automated by a single workflow, `release.yml`, triggered
+by pushing a git tag with the right suffix. All platforms selected by the
+tag share **one** GitHub Release (identified by the tag name) — the
+workflow builds each selected platform in parallel, attaches its archive to
+that shared release as a draft, and only publishes the release once every
+platform the tag selected has finished successfully.
 
-| Tag pattern       | Workflow             | Runner           | Artifact                    |
-|--------------------|-----------------------|------------------|------------------------------|
-| `*release-linux`   | `linux-release.yml`   | `ubuntu-latest`  | `utas-release-linux.tar.gz`  |
-| `*release-mac`     | `mac-release.yml`     | `macos-latest`   | `utas-release-mac-os.zip`    |
-| `*release-win`     | `win-release.yml`     | `windows-latest` | `utas-release-windows.zip`   |
-| `*release`         | all three above       | all three        | all three artifacts          |
+| Tag pattern       | Platforms built        | Artifact(s)                                                    |
+|--------------------|-------------------------|-----------------------------------------------------------------|
+| `*release-linux`   | Linux only              | `utas-release-linux.tar.gz`                                     |
+| `*release-mac`     | macOS only               | `utas-release-mac-os.zip`                                       |
+| `*release-win`     | Windows only             | `utas-release-windows.zip`                                      |
+| `*release`         | Linux + macOS + Windows | `utas-release-linux.tar.gz`, `utas-release-mac-os.zip`, `utas-release-windows.zip` |
 
-Each release workflow:
+For each selected platform, `release.yml`:
 
 1. Runs `cargo test` (and `cargo test -p file`) — the release build only
    proceeds if tests pass.
 2. Builds `utas` in release mode (`cargo build --release`).
 3. Compresses the resulting binary into a platform-specific archive.
-4. Creates a **draft** GitHub Release for the pushed tag and uploads the
-   archive as a release asset, via
+4. Creates (or updates) a **draft** GitHub Release for the pushed tag and
+   uploads the archive as a release asset, via
    [`softprops/action-gh-release`](https://github.com/softprops/action-gh-release).
+
+Once every platform job the tag selected has finished, a final
+`publish-release` job flips that shared release from draft to published via
+`gh release edit --draft=false`, so it shows up under **Releases** /
+**Latest** only when it's actually complete — never half-built with some
+platform's archive still missing.
 
 ### How to cut a release
 
@@ -147,16 +155,17 @@ Each release workflow:
 3. Tag and push:
 
    ```bash
-   git tag v1.2.0-release
-   git push origin v1.2.0-release
+   git tag v1.5.0-release
+   git push origin v1.5.0-release
    ```
 
-4. Watch the corresponding workflow(s) run under the **Actions** tab.
-5. Once finished, a **draft** release will appear under **Releases** with
-   the built archive(s) attached. Review the draft, edit the release notes
-   if needed, and publish it manually — drafts are never published
-   automatically.
+4. Watch the workflow run under the **Actions** tab — each selected
+   platform builds in its own job.
+5. Once every selected platform's job succeeds, the release is published
+   automatically with all of its archives attached; no manual "Publish"
+   click is needed. If a platform job fails, the release stays a draft so
+   an incomplete release is never shown as the latest one — fix the issue
+   and re-push the tag (after deleting the old one) to retry.
 
 To release for every platform at once, use a tag ending in exactly
-`release` (not `release-<platform>`), since all three workflows also match
-the bare `*release` pattern.
+`release` (not `release-<platform>`).
