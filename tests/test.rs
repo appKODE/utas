@@ -84,6 +84,25 @@ fn basic_test_case(
     case_rel_path: &str,
     default_lang: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
+    run_test_case(platform, "android", case_rel_path, default_lang)
+}
+
+#[test]
+fn case_ios_1() -> Result<(), Box<dyn Error>> {
+    run_test_case("ios", "ios", "case1", Some("en".to_string()))
+}
+
+#[test]
+fn case_ios_2_fills_missing_translations_with_default_lang() -> Result<(), Box<dyn Error>> {
+    run_test_case("ios", "ios", "case2", Some("en".to_string()))
+}
+
+fn run_test_case(
+    platform: &str,
+    platform_dir: &str,
+    case_rel_path: &str,
+    default_lang: Option<String>,
+) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("utas")?;
 
     let mut temp = assert_fs::TempDir::new()?;
@@ -91,13 +110,13 @@ fn basic_test_case(
 
     let input = Path::new("tests")
         .join("cases")
-        .join("android")
+        .join(platform_dir)
         .join(case_rel_path)
         .join("input");
     let output = temp.path();
     let expected = Path::new("tests")
         .join("cases")
-        .join("android")
+        .join(platform_dir)
         .join(case_rel_path)
         .join("output");
 

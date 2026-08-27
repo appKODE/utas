@@ -654,6 +654,83 @@ fn parses_plural_keys_when_some_locales_miss_quantity() {
     }
 }
 
+#[test]
+fn parse_reads_single_and_plural_keys_from_a_file() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    use assert_fs::fixture::FileWriteStr;
+
+    let input = assert_fs::NamedTempFile::new("src1.txt")?;
+    input.write_str(
+        "[[Src1]]\n  [greeting]\n    en = Hello\n    ru = Привет\n\n  [cows]\n    en:one = %d cow\n    en:other = %d cows\n",
+    )?;
+
+    let file = parse(input.path())?;
+    assert_eq!(file.sections.len(), 1);
+    let keys = &file.sections[0].keys;
+    assert_eq!(keys.len(), 2);
+
+    let greeting = keys.iter().find(|k| k.name == "greeting").unwrap();
+    assert_eq!(greeting.localizations.len(), 2);
+    assert!(greeting
+        .localizations
+        .iter()
+        .any(|l| l.language_code == "en" && l.value == StringValue::Single("Hello".to_string())));
+
+    let cows = keys.iter().find(|k| k.name == "cows").unwrap();
+    assert_eq!(cows.localizations.len(), 1);
+    match &cows.localizations[0].value {
+        StringValue::Plural { quantities } => {
+            assert_eq!(quantities.len(), 2);
+            assert!(quantities.contains(&PluralValue {
+                quantity: "one".to_string(),
+                text: "%d cow".to_string(),
+            }));
+        }
+        StringValue::Single(_) => panic!("expected plural value"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn parse_skips_empty_localization_values() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    use assert_fs::fixture::FileWriteStr;
+
+    let input = assert_fs::NamedTempFile::new("src1.txt")?;
+    // a localization line with no "=" delimiter has no value and must be skipped
+    input.write_str("[[Src1]]\n  [greeting]\n    en = Hello\n    ru\n")?;
+
+    let file = parse(input.path())?;
+    let greeting = &file.sections[0].keys[0];
+    assert_eq!(greeting.localizations.len(), 1);
+    assert_eq!(greeting.localizations[0].language_code, "en");
+
+    Ok(())
+}
+
+#[test]
+fn parse_deduplicates_keys_with_same_name_across_sections() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    // See NOTE_DEDUPLICATING_KEYS: twine allows a plural and a regular key with the
+    // same name, so the parser must not silently merge them into a single entry.
+    use assert_fs::fixture::FileWriteStr;
+
+    let input = assert_fs::NamedTempFile::new("src1.txt")?;
+    input.write_str(
+        "[[Src1]]\n  [receipt]\n    en = plain receipt\n\n  [receipt]\n    en:one = %d receipt\n    en:other = %d receipts\n",
+    )?;
+
+    let file = parse(input.path())?;
+    let keys = &file.sections[0].keys;
+    assert_eq!(keys.len(), 2);
+    assert!(keys
+        .iter()
+        .any(|k| k.name == "receipt" && matches!(k.localizations[0].value, StringValue::Single(_))));
+    assert!(keys
+        .iter()
+        .any(|k| k.name == "receipt" && matches!(k.localizations[0].value, StringValue::Plural { .. })));
+
+    Ok(())
+}
+
 // NOTE_DEDUPLICATING_KEYS
 // Twine format allows duplicate keys, for example there could be a plurals
 // string and a regular string with the same key name.

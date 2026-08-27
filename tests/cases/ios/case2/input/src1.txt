@@ -1,0 +1,7 @@
+[[Src1]]
+  [greeting]
+    en = Hello
+    ru = Привет
+
+  [only_en]
+    en = English only string
