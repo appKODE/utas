@@ -665,7 +665,14 @@ fn parse_reads_single_and_plural_keys_from_a_file() -> std::result::Result<(), B
 
     let file = parse(input.path())?;
     assert_eq!(file.sections.len(), 1);
-    let keys = &file.sections[0].keys;
+    // configparser also surfaces a phantom "[Src1]" entry for the twine "[[Src1]]"
+    // section marker (see NOTE_DEDUPLICATING_KEYS below); it carries no localizations
+    // and produces no output, so real keys are the ones with localizations.
+    let keys: Vec<_> = file.sections[0]
+        .keys
+        .iter()
+        .filter(|k| !k.localizations.is_empty())
+        .collect();
     assert_eq!(keys.len(), 2);
 
     let greeting = keys.iter().find(|k| k.name == "greeting").unwrap();
@@ -700,7 +707,11 @@ fn parse_skips_empty_localization_values() -> std::result::Result<(), Box<dyn st
     input.write_str("[[Src1]]\n  [greeting]\n    en = Hello\n    ru\n")?;
 
     let file = parse(input.path())?;
-    let greeting = &file.sections[0].keys[0];
+    let greeting = file.sections[0]
+        .keys
+        .iter()
+        .find(|k| k.name == "greeting")
+        .unwrap();
     assert_eq!(greeting.localizations.len(), 1);
     assert_eq!(greeting.localizations[0].language_code, "en");
 
@@ -719,14 +730,18 @@ fn parse_deduplicates_keys_with_same_name_across_sections() -> std::result::Resu
     )?;
 
     let file = parse(input.path())?;
-    let keys = &file.sections[0].keys;
+    let keys: Vec<_> = file.sections[0]
+        .keys
+        .iter()
+        .filter(|k| k.name == "receipt")
+        .collect();
     assert_eq!(keys.len(), 2);
     assert!(keys
         .iter()
-        .any(|k| k.name == "receipt" && matches!(k.localizations[0].value, StringValue::Single(_))));
+        .any(|k| matches!(k.localizations[0].value, StringValue::Single(_))));
     assert!(keys
         .iter()
-        .any(|k| k.name == "receipt" && matches!(k.localizations[0].value, StringValue::Plural { .. })));
+        .any(|k| matches!(k.localizations[0].value, StringValue::Plural { .. })));
 
     Ok(())
 }
